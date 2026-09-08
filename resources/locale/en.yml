@@ -5,7 +5,7 @@ ernestdefoe-fantasy:
     empty: No leagues yet.
     no_league: There is no league at this address.
 
-    franchise_count: "{count} franchise|{count} franchises"
+    franchise_count: "{count, plural, one {# franchise} other {# franchises}}"
 
     standings: Standings
     scoring: Scoring

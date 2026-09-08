@@ -48,9 +48,14 @@ export default class FantasyIndexPage extends Page {
                   </span>
                   {l.description ? <span className="FantasyCard-desc">{l.description}</span> : null}
                   <span className="FantasyCard-meta">
-                    {app.translator.transChoice('ernestdefoe-fantasy.forum.franchise_count', l.franchises, {
-                      count: l.franchises,
-                    })}
+                    {/*
+                      🚨 `trans` with a count, and the plural inside the STRING
+                      as ICU MessageFormat. Flarum 2 has no `transChoice` —
+                      calling it throws inside `view()`, and the failure is
+                      invisible: the redraw never lands and the page sits on a
+                      spinner.
+                    */}
+                    {app.translator.trans('ernestdefoe-fantasy.forum.franchise_count', { count: l.franchises })}
                   </span>
                 </Link>
               ))}
