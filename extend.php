@@ -20,6 +20,19 @@ return [
         ->route('/fantasy', 'fantasy.index')
         ->route('/fantasy/{slug}', 'fantasy.league'),
 
+    (new Extend\Frontend('admin'))
+        ->js(__DIR__ . '/js/dist/admin.js'),
+
+    /*
+     * 🚨 The label is serialized to the FORUM, not read from the admin bundle.
+     * The sidebar link is drawn on every page by every visitor, including ones
+     * who will never load the admin frontend, so a setting it reads has to
+     * arrive in the forum payload or the link falls back to its default for
+     * everybody and looks like the setting does nothing.
+     */
+    (new Extend\Settings())
+        ->serializeToForum('fantasyNavLabel', 'ernestdefoe-fantasy.nav_label'),
+
     new Extend\Locales(__DIR__ . '/resources/locale'),
 
     (new Extend\Routes('api'))

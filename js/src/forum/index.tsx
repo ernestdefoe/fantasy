@@ -20,7 +20,7 @@ app.initializers.add('ernestdefoe-fantasy', () => {
     items.add(
       'fantasy',
       <LinkButton href={app.route('fantasy.index')} icon="fas fa-trophy">
-        {app.translator.trans('ernestdefoe-fantasy.forum.title')}
+        {app.forum.attribute('fantasyNavLabel') || app.translator.trans('ernestdefoe-fantasy.forum.title')}
       </LinkButton>,
       -11
     );

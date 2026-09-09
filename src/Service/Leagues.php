@@ -5,15 +5,31 @@ namespace ErnestDefoe\Fantasy\Service;
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
+use Flarum\Settings\SettingsRepositoryInterface;
 use Illuminate\Support\Str;
 
 /** Creating and joining leagues. */
 class Leagues
 {
+    /**
+     * What a league starts from when the form does not say, and what the
+     * admin screen's three numbers actually change.
+     *
+     * 🚨 Read here rather than baked into the form. A default typed into the
+     * JavaScript is a default only for people who use that form — the API, a
+     * seeder and any future importer would all carry their own copy, and the
+     * setting would quietly govern one of them.
+     */
+    private const FALLBACK = ['max_franchises' => 12, 'roster_size' => 8, 'starters' => 4];
+
+    public function __construct(private ?SettingsRepositoryInterface $settings = null)
+    {
+    }
+
     public function create(array $input, int $userId): League
     {
         $name = trim((string) ($input['name'] ?? ''));
-        $roster = min(25, max(1, (int) ($input['roster_size'] ?? 8)));
+        $roster = min(25, max(1, (int) ($input['roster_size'] ?? $this->configured('roster_size'))));
         $seasonId = (int) ($input['season_id'] ?? 0);
 
         $league = new League();
@@ -24,13 +40,13 @@ class Leagues
             'season_id' => $seasonId,
             'commissioner_id' => $userId,
             'status' => 'setup',
-            'max_franchises' => min(32, max(2, (int) ($input['max_franchises'] ?? 12))),
+            'max_franchises' => min(32, max(2, (int) ($input['max_franchises'] ?? $this->configured('max_franchises')))),
             'roster_size' => $roster,
             /*
              * 🚨 Never more than the roster it is chosen from, or every lineup
              * screen is a form that cannot be completed.
              */
-            'starters' => min($roster, max(1, (int) ($input['starters'] ?? 4))),
+            'starters' => min($roster, max(1, (int) ($input['starters'] ?? $this->configured('starters')))),
         ]);
 
         /*
@@ -76,6 +92,19 @@ class Leagues
             'user_id' => $userId,
             'name' => Str::limit(trim($name) ?: 'Franchise', 119, ''),
         ]);
+    }
+
+    /**
+     * One configured default, clamped by the caller the same as any other
+     * input. An operator who types 0 into the admin screen gets the same
+     * treatment as an API client who posts 0, which is the point of clamping
+     * where the value is USED rather than where it arrives.
+     */
+    private function configured(string $key): int
+    {
+        $value = $this->settings?->get('ernestdefoe-fantasy.default_' . $key);
+
+        return $value === null || $value === '' ? self::FALLBACK[$key] : (int) $value;
     }
 
     private function uniqueSlug(string $name): string

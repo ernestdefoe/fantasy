@@ -1,4 +1,15 @@
 ernestdefoe-fantasy:
+  admin:
+    settings:
+      nav_label: Name of the sidebar link
+      nav_label_help: What the link to Fantasy is called in the forum sidebar. Leave empty for "Fantasy".
+      max_franchises: Franchises per league
+      max_franchises_help: How many members a new league starts out allowing. A commissioner can change it for their own league.
+      roster_size: Teams on a roster
+      roster_size_help: How many teams each franchise drafts, by default.
+      starters: Teams in a lineup
+      starters_help: How many of those a franchise starts each week. Never more than the roster it is chosen from.
+
   forum:
     title: Fantasy
     intro: Draft teams, start a few of them a week, and play somebody new every week.
