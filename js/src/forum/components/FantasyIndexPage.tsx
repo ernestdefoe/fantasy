@@ -2,6 +2,8 @@ import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
+import Button from 'flarum/common/components/Button';
+import CreateLeagueModal from './CreateLeagueModal';
 
 declare const m: any;
 
@@ -9,6 +11,8 @@ declare const m: any;
 export default class FantasyIndexPage extends Page {
   loading = true;
   leagues: any[] = [];
+  seasons: any[] = [];
+  canCreate = false;
 
   oninit(vnode: any) {
     super.oninit(vnode);
@@ -18,6 +22,8 @@ export default class FantasyIndexPage extends Page {
       .request({ method: 'GET', url: `${app.forum.attribute('apiUrl')}/fantasy/leagues` })
       .then((data: any) => {
         this.leagues = data.leagues || [];
+        this.seasons = data.seasons || [];
+        this.canCreate = !!data.canCreate;
         this.loading = false;
         m.redraw();
       })
@@ -33,6 +39,33 @@ export default class FantasyIndexPage extends Page {
         <div className="container">
           <h1>{app.translator.trans('ernestdefoe-fantasy.forum.title')}</h1>
           <p className="FantasyPage-intro">{app.translator.trans('ernestdefoe-fantasy.forum.intro')}</p>
+
+          {/*
+            * 🚨 Drawn only once the request has answered, and only if it said
+            * yes. Guessing from `app.session.user` would show the button to
+            * every member and then refuse half of them at the API — the server
+            * is the only thing that knows whether the permission is granted,
+            * and a control that appears and then says no is worse than one
+            * that was never there.
+            */}
+          {!this.loading && this.canCreate ? (
+            <Button
+              className="Button Button--primary FantasyPage-start"
+              icon="fas fa-plus"
+              onclick={() =>
+                app.modal.show(CreateLeagueModal, {
+                  seasons: this.seasons,
+                  defaults: {
+                    maxFranchises: app.forum.attribute('fantasyMaxFranchises'),
+                    rosterSize: app.forum.attribute('fantasyRosterSize'),
+                    starters: app.forum.attribute('fantasyStarters'),
+                  },
+                })
+              }
+            >
+              {app.translator.trans('ernestdefoe-fantasy.forum.start_league')}
+            </Button>
+          ) : null}
 
           {this.loading ? (
             <LoadingIndicator />

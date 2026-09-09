@@ -17,6 +17,20 @@ import app from 'flarum/admin/app';
  */
 export default [
   new Extend.Admin()
+    /*
+     * 🚨 Admins pass this without it being granted — Flarum short-circuits
+     * every permission check for them — so what this grid row really asks is
+     * "may ordinary members start a league". Out of the box the answer is no,
+     * and nothing is broken by that.
+     */
+    .permission(
+      () => ({
+        icon: 'fas fa-trophy',
+        label: app.translator.trans('ernestdefoe-fantasy.admin.permissions.create_league'),
+        permission: 'fantasy.createLeague',
+      }),
+      'start'
+    )
     .setting(() => ({
       setting: 'ernestdefoe-fantasy.nav_label',
       type: 'text',
