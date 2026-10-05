@@ -18,6 +18,8 @@ return [
      */
     (new Extend\Frontend('forum'))
         ->js(__DIR__ . '/js/dist/forum.js')
+        // The fantasy pages are their own chunks, loaded only when opened.
+        ->jsDirectory(__DIR__ . '/js/dist/forum')
         ->css(__DIR__ . '/resources/less/forum.less')
         ->route('/fantasy', 'fantasy.index')
         ->route('/fantasy/{slug}', 'fantasy.league'),
