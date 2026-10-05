@@ -91,6 +91,38 @@ class League extends AbstractModel
      *
      * @return array<string, float>
      */
+    /**
+     * The competition of many seasons at once, keyed by season id — one query
+     * for a whole list of leagues rather than one per league.
+     *
+     * @param  int[]  $seasonIds
+     * @return array<int, string>
+     */
+    public static function competitionsFor(array $seasonIds): array
+    {
+        $seasonIds = array_values(array_unique(array_filter(array_map('intval', $seasonIds))));
+
+        if ($seasonIds === []) {
+            return [];
+        }
+
+        $connection = (new static())->getConnection();
+
+        try {
+            if (! $connection->getSchemaBuilder()->hasColumn('picks_seasons', 'league')) {
+                return [];
+            }
+
+            return $connection->table('picks_seasons')
+                ->whereIn('id', $seasonIds)
+                ->pluck('league', 'id')
+                ->map(fn ($league) => (string) $league)
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     public function sportDefaults(): array
     {
         return SportScoring::defaultsFor($this->competition());

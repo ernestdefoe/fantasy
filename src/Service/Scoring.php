@@ -43,6 +43,7 @@ class Scoring
         $games = $this->gamesFor($weekId, $teamIds);
 
         $scored = 0;
+        $rows = [];
         $now = Carbon::now();
 
         foreach ($started as $row) {
@@ -75,26 +76,22 @@ class Scoring
                 + $margin * (float) $league->points_per_margin
                 + $bonus;
 
-            $this->db->table('fantasy_scores')->updateOrInsert(
-                [
-                    'league_id' => $league->id,
-                    'franchise_id' => (int) $row->franchise_id,
-                    'week_id' => $weekId,
-                    'team_id' => (int) $row->team_id,
-                ],
-                [
-                    'points' => round($points, 2),
-                    // The workings, so an old week stays explainable after a
-                    // commissioner changes a rule.
-                    'scored' => $for,
-                    'allowed' => $against,
-                    'won' => $won,
-                    'shutout' => $shutout,
-                    'bonus' => round($bonus, 2),
-                    'updated_at' => $now,
-                    'created_at' => $now,
-                ]
-            );
+            $rows[] = [
+                'league_id' => $league->id,
+                'franchise_id' => (int) $row->franchise_id,
+                'week_id' => $weekId,
+                'team_id' => (int) $row->team_id,
+                'points' => round($points, 2),
+                // The workings, so an old week stays explainable after a
+                // commissioner changes a rule.
+                'scored' => $for,
+                'allowed' => $against,
+                'won' => $won,
+                'shutout' => $shutout,
+                'bonus' => round($bonus, 2),
+                'updated_at' => $now,
+                'created_at' => $now,
+            ];
 
             $scored++;
         }

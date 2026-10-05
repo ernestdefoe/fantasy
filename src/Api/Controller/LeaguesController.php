@@ -2,7 +2,6 @@
 
 namespace ErnestDefoe\Fantasy\Api\Controller;
 
-use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Http\RequestUtil;
@@ -28,23 +27,25 @@ class LeaguesController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $leagues = League::query()->orderByDesc('id')->get();
+        /*
+         * 🚨 The franchise count and each league's sport arrive in two
+         * queries for the whole list. They were three queries PER league — the
+         * franchises and their members loaded only to be counted, and a season
+         * lookup each — so the page cost grew with every league created.
+         */
+        $leagues = League::query()->withCount('franchises')->orderByDesc('id')->get();
+        $competitions = League::competitionsFor($leagues->pluck('season_id')->all());
         $out = [];
 
         foreach ($leagues as $league) {
-            $franchises = Franchise::query()
-                ->where('league_id', $league->id)
-                ->with('user')
-                ->get();
-
             $out[] = [
                 'id' => (int) $league->id,
                 'name' => (string) $league->name,
                 'slug' => (string) $league->slug,
                 'description' => (string) $league->description,
                 'status' => (string) $league->status,
-                'sport' => SportScoring::sportOf($league->competition()),
-                'franchises' => $franchises->count(),
+                'sport' => SportScoring::sportOf($competitions[(int) $league->season_id] ?? ''),
+                'franchises' => (int) $league->franchises_count,
                 'maxFranchises' => (int) $league->max_franchises,
             ];
         }
