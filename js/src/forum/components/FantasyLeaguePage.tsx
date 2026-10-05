@@ -2,6 +2,7 @@ import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
+import crestUrl from '../crest';
 
 declare const m: any;
 
@@ -75,7 +76,7 @@ export default class FantasyLeaguePage extends Page {
                         <span className="FantasyRoster">
                           {row.roster.map((t: any) =>
                             t.logo ? (
-                              <img className="FantasyRoster-crest" src={t.logo} title={t.name} alt={t.name} loading="lazy" />
+                              <img className="FantasyRoster-crest" src={crestUrl(t.logo, 22)} title={t.name} alt={t.name} loading="lazy" decoding="async" />
                             ) : (
                               <span className="FantasyRoster-name">{t.name}</span>
                             )
