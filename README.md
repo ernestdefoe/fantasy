@@ -82,6 +82,11 @@ earlier week unexplainable.
 - [`ernestdefoe/picks`](https://github.com/ernestdefoe/picks) for the fixtures
   and results
 
+## Support
+
+- **Support forum:** [Fantasy on ernestdefoe.online](https://ernestdefoe.online/d/114)
+- **Bug reports:** [GitHub issues](https://github.com/ernestdefoe/fantasy/issues)
+
 ## Licence
 
 MIT.
