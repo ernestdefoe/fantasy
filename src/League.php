@@ -4,13 +4,28 @@ namespace ErnestDefoe\Fantasy;
 
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Database\AbstractModel;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * @property int    $id
+ * @property int $id
  * @property string $name
  * @property string $slug
- * @property int    $season_id
+ * @property string|null $description
+ * @property int $season_id
+ * @property int|null $commissioner_id
  * @property string $status
+ * @property int $max_franchises
+ * @property int $roster_size
+ * @property int $starters
+ * @property float $points_per_point
+ * @property float $points_per_point_allowed
+ * @property float $win_bonus
+ * @property float $shutout_bonus
+ * @property float $points_per_margin
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property int $franchises_count only when loaded withCount('franchises')
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Franchise> $franchises
  */
 class League extends AbstractModel
 {
@@ -52,7 +67,8 @@ class League extends AbstractModel
         'points_per_margin' => 'float',
     ];
 
-    public function franchises()
+    /** @return HasMany<Franchise, $this> */
+    public function franchises(): HasMany
     {
         return $this->hasMany(Franchise::class, 'league_id');
     }

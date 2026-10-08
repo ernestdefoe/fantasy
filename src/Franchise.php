@@ -4,12 +4,17 @@ namespace ErnestDefoe\Fantasy;
 
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * @property int    $id
- * @property int    $league_id
- * @property int    $user_id
+ * @property int $id
+ * @property int $league_id
+ * @property int $user_id
  * @property string $name
+ * @property \Carbon\Carbon|null $created_at
+ * @property \Carbon\Carbon|null $updated_at
+ * @property-read User|null $user
+ * @property-read League|null $league
  */
 class Franchise extends AbstractModel
 {
@@ -21,12 +26,14 @@ class Franchise extends AbstractModel
 
     protected $casts = ['league_id' => 'integer', 'user_id' => 'integer'];
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function league()
+    /** @return BelongsTo<League, $this> */
+    public function league(): BelongsTo
     {
         return $this->belongsTo(League::class, 'league_id');
     }

@@ -11,9 +11,10 @@ use Flarum\Database\AbstractModel;
  * roster extension's word, and two `Roster` classes in one autoloader is a
  * confusion nobody needs to have twice.
  *
- * @property int    $league_id
- * @property int    $franchise_id
- * @property int    $team_id
+ * @property int $id
+ * @property int $league_id
+ * @property int $franchise_id
+ * @property int $team_id
  * @property string $acquired_via
  */
 class RosterSpot extends AbstractModel
