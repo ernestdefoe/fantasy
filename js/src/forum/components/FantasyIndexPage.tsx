@@ -3,6 +3,7 @@ import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
 import Button from 'flarum/common/components/Button';
+import extractText from 'flarum/common/utils/extractText';
 import CreateLeagueModal from './CreateLeagueModal';
 
 declare const m: any;
@@ -16,7 +17,7 @@ export default class FantasyIndexPage extends Page {
 
   oninit(vnode: any) {
     super.oninit(vnode);
-    app.history.push('fantasy', app.translator.trans('ernestdefoe-fantasy.forum.title'));
+    app.history.push('fantasy', extractText(app.translator.trans('ernestdefoe-fantasy.forum.title')));
 
     app
       .request({ method: 'GET', url: `${app.forum.attribute('apiUrl')}/fantasy/leagues` })

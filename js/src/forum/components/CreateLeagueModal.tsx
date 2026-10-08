@@ -1,8 +1,15 @@
 import app from 'flarum/forum/app';
-import Modal from 'flarum/common/components/Modal';
+import Modal, { IInternalModalAttrs } from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import Stream from 'flarum/common/utils/Stream';
 import withAttr from 'flarum/common/utils/withAttr';
+
+declare const m: any;
+
+interface CreateLeagueModalAttrs extends IInternalModalAttrs {
+  seasons?: { id: number; name: string }[];
+  defaults?: { maxFranchises?: number; rosterSize?: number; starters?: number };
+}
 
 /**
  * Start a league.
@@ -14,7 +21,7 @@ import withAttr from 'flarum/common/utils/withAttr';
  * says what the league will be given, so the numbers are visible without being
  * editable in the one place that would make them meaningless.
  */
-export default class CreateLeagueModal extends Modal {
+export default class CreateLeagueModal extends Modal<CreateLeagueModalAttrs> {
   name = Stream('');
   description = Stream('');
   seasonId = Stream('');
