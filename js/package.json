@@ -19,7 +19,7 @@
     "@flarum/prettier-config": "^1.0.0",
     "prettier": "^3.9.9",
     "typescript": "^5.0.0",
-    "typescript-coverage-report": "^1.0.0"
+    "typescript-coverage-report": "~1.0.0"
   },
   "prettier": "@flarum/prettier-config"
 }
