@@ -17,15 +17,15 @@ return [
      * works.
      */
     (new Extend\Frontend('forum'))
-        ->js(__DIR__ . '/js/dist/forum.js')
+        ->js(__DIR__.'/js/dist/forum.js')
         // The fantasy pages are their own chunks, loaded only when opened.
-        ->jsDirectory(__DIR__ . '/js/dist/forum')
-        ->css(__DIR__ . '/resources/less/forum.less')
+        ->jsDirectory(__DIR__.'/js/dist/forum')
+        ->css(__DIR__.'/resources/less/forum.less')
         ->route('/fantasy', 'fantasy.index')
         ->route('/fantasy/{slug}', 'fantasy.league'),
 
     (new Extend\Frontend('admin'))
-        ->js(__DIR__ . '/js/dist/admin.js'),
+        ->js(__DIR__.'/js/dist/admin.js'),
 
     /*
      * 🚨 The label is serialized to the FORUM, not read from the admin bundle.
@@ -52,7 +52,7 @@ return [
         ->serializeToForum('fantasyRosterSize', 'ernestdefoe-fantasy.default_roster_size', fn ($v) => (int) ($v ?: 8))
         ->serializeToForum('fantasyStarters', 'ernestdefoe-fantasy.default_starters', fn ($v) => (int) ($v ?: 4)),
 
-    new Extend\Locales(__DIR__ . '/resources/locale'),
+    new Extend\Locales(__DIR__.'/resources/locale'),
 
     (new Extend\Routes('api'))
         ->get('/fantasy/leagues', 'fantasy.api.leagues', LeaguesController::class)

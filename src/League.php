@@ -90,7 +90,7 @@ class League extends AbstractModel
                 $has = $this->getConnection()->getSchemaBuilder()->hasColumn('picks_seasons', 'league');
             }
 
-            if (!$has) {
+            if (! $has) {
                 return '';
             }
 

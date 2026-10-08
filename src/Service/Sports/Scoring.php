@@ -1,7 +1,5 @@
 <?php
 
-
-
 namespace ErnestDefoe\Fantasy\Service\Sports;
 
 /**

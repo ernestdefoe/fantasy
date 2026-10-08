@@ -51,7 +51,7 @@ class Draft
         $search = trim($search);
 
         if ($search !== '') {
-            $like = '%' . $search . '%';
+            $like = '%'.$search.'%';
             $query->where(function ($q) use ($like) {
                 $q->where('t.name', 'like', $like)
                     ->orWhere('t.conference', 'like', $like)
@@ -73,7 +73,7 @@ class Draft
      */
     public function pick(League $league, int $franchiseId, int $teamId): array
     {
-        if (!$this->playsIn($league, $teamId)) {
+        if (! $this->playsIn($league, $teamId)) {
             return ['ok' => false, 'problem' => 'no_such_team'];
         }
 

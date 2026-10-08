@@ -6,7 +6,6 @@ use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Http\RequestUtil;
 use Illuminate\Database\ConnectionInterface;
-use Illuminate\Support\Arr;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -90,7 +89,7 @@ class LeaguesController implements RequestHandlerInterface
         foreach ($rows as $row) {
             $out[] = [
                 'id' => (int) $row->id,
-                'name' => (string) ($row->name ?: ('Season ' . ($row->year ?? $row->id))),
+                'name' => (string) ($row->name ?: ('Season '.($row->year ?? $row->id))),
             ];
         }
 

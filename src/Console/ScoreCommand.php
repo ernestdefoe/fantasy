@@ -43,7 +43,7 @@ class ScoreCommand extends Command
             }
         }
 
-        $this->line($total . ' team-weeks scored across ' . $leagues->count() . ' leagues.');
+        $this->line($total.' team-weeks scored across '.$leagues->count().' leagues.');
 
         return self::SUCCESS;
     }

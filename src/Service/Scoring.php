@@ -49,7 +49,7 @@ class Scoring
         foreach ($started as $row) {
             $game = $games[(int) $row->team_id] ?? null;
 
-            if ($game === null || !$this->isFinal($game)) {
+            if ($game === null || ! $this->isFinal($game)) {
                 continue;
             }
 

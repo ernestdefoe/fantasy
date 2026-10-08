@@ -102,7 +102,7 @@ class Leagues
      */
     private function configured(string $key): int
     {
-        $value = $this->settings?->get('ernestdefoe-fantasy.default_' . $key);
+        $value = $this->settings?->get('ernestdefoe-fantasy.default_'.$key);
 
         return $value === null || $value === '' ? self::FALLBACK[$key] : (int) $value;
     }
@@ -114,7 +114,7 @@ class Leagues
         $n = 2;
 
         while (League::query()->where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $n++;
+            $slug = $base.'-'.$n++;
         }
 
         return Str::limit($slug, 189, '');
