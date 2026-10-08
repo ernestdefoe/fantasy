@@ -96,6 +96,14 @@ class Scoring
             $scored++;
         }
 
+        if ($rows !== []) {
+            $this->db->table('fantasy_scores')->upsert(
+                $rows,
+                ['league_id', 'franchise_id', 'week_id', 'team_id'],
+                ['points', 'scored', 'allowed', 'won', 'shutout', 'bonus', 'updated_at']
+            );
+        }
+
         return ['scored' => $scored];
     }
 
