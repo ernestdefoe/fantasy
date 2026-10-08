@@ -38,7 +38,12 @@ export default class FantasyLeaguePage extends Page {
 
   view() {
     if (this.loading) return <LoadingIndicator />;
-    if (!this.league) return <div className="container"><p>{app.translator.trans('ernestdefoe-fantasy.forum.no_league')}</p></div>;
+    if (!this.league)
+      return (
+        <div className="container">
+          <p>{app.translator.trans('ernestdefoe-fantasy.forum.no_league')}</p>
+        </div>
+      );
 
     return (
       <div className="FantasyPage FantasyPage--league">
@@ -76,7 +81,14 @@ export default class FantasyLeaguePage extends Page {
                         <span className="FantasyRoster">
                           {row.roster.map((t: any) =>
                             t.logo ? (
-                              <img className="FantasyRoster-crest" src={crestUrl(t.logo, 22)} title={t.name} alt={t.name} loading="lazy" decoding="async" />
+                              <img
+                                className="FantasyRoster-crest"
+                                src={crestUrl(t.logo, 22)}
+                                title={t.name}
+                                alt={t.name}
+                                loading="lazy"
+                                decoding="async"
+                              />
                             ) : (
                               <span className="FantasyRoster-name">{t.name}</span>
                             )

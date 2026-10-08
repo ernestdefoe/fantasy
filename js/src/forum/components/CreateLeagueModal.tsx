@@ -85,15 +85,8 @@ export default class CreateLeagueModal extends Modal<CreateLeagueModalAttrs> {
         </p>
 
         <div className="Form-group">
-          <Button
-            className="Button Button--primary Button--block"
-            type="submit"
-            loading={this.saving}
-            disabled={this.saving || !this.name().trim()}
-          >
-            {app.translator.trans(
-              this.saving ? 'ernestdefoe-fantasy.forum.creating' : 'ernestdefoe-fantasy.forum.create'
-            )}
+          <Button className="Button Button--primary Button--block" type="submit" loading={this.saving} disabled={this.saving || !this.name().trim()}>
+            {app.translator.trans(this.saving ? 'ernestdefoe-fantasy.forum.creating' : 'ernestdefoe-fantasy.forum.create')}
           </Button>
         </div>
       </div>

@@ -42,13 +42,13 @@ export default class FantasyIndexPage extends Page {
           <p className="FantasyPage-intro">{app.translator.trans('ernestdefoe-fantasy.forum.intro')}</p>
 
           {/*
-            * 🚨 Drawn only once the request has answered, and only if it said
-            * yes. Guessing from `app.session.user` would show the button to
-            * every member and then refuse half of them at the API — the server
-            * is the only thing that knows whether the permission is granted,
-            * and a control that appears and then says no is worse than one
-            * that was never there.
-            */}
+           * 🚨 Drawn only once the request has answered, and only if it said
+           * yes. Guessing from `app.session.user` would show the button to
+           * every member and then refuse half of them at the API — the server
+           * is the only thing that knows whether the permission is granted,
+           * and a control that appears and then says no is worse than one
+           * that was never there.
+           */}
           {!this.loading && this.canCreate ? (
             <Button
               className="Button Button--primary FantasyPage-start"
