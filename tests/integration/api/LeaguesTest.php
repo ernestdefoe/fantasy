@@ -128,11 +128,16 @@ class LeaguesTest extends TestCase
     }
 
     #[Test]
-    public function a_guest_cannot_create_or_join()
+    public function a_guest_cannot_create_a_league()
     {
         $this->assertSame(401, $this->call('POST', '/api/fantasy/leagues', null, ['name' => 'Guests'])->getStatusCode());
-        $this->assertSame(401, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', null, [])->getStatusCode());
         $this->assertSame(2, $this->database()->table('fantasy_leagues')->count());
+    }
+
+    #[Test]
+    public function a_guest_cannot_join_a_league()
+    {
+        $this->assertSame(401, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', null, [])->getStatusCode());
         $this->assertSame(3, $this->database()->table('fantasy_franchises')->count());
     }
 
