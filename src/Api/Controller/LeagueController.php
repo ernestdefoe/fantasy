@@ -5,8 +5,8 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
-use Flarum\Api\Exception\ResourceNotFoundException;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -25,7 +25,7 @@ class LeagueController implements RequestHandlerInterface
         $league = League::query()->where('slug', $slug)->first();
 
         if ($league === null) {
-            throw new ResourceNotFoundException();
+            throw new ModelNotFoundException();
         }
 
         $competition = $league->competition();
