@@ -45,7 +45,7 @@ class LeagueController implements RequestHandlerInterface
 
         $totals = $this->db->table('fantasy_scores')
             ->where('league_id', $league->id)
-            ->selectRaw('franchise_id, SUM(points) AS points, SUM(won) AS wins, COUNT(*) AS games')
+            ->selectRaw('franchise_id, SUM(points) AS points, SUM(CASE WHEN won THEN 1 ELSE 0 END) AS wins, COUNT(*) AS games')
             ->groupBy('franchise_id')
             ->get()
             ->keyBy('franchise_id');
