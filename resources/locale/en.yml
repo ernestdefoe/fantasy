@@ -54,3 +54,10 @@ ernestdefoe-fantasy:
       win_bonus: For a win
       shutout_bonus: For a shutout
       points_per_margin: For each point of the winning margin
+
+  api:
+    name_required: A league needs a name.
+    name_too_long: That name is too long.
+    league_not_found: There is no league at that address.
+    league_started: That league has already started.
+    league_full: That league is full.

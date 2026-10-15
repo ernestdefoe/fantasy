@@ -4,6 +4,7 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 
 use ErnestDefoe\Fantasy\Service\Leagues;
 use Flarum\Http\RequestUtil;
+use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -24,7 +25,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 class CreateLeagueController implements RequestHandlerInterface
 {
-    public function __construct(private Leagues $leagues)
+    public function __construct(protected TranslatorInterface $translator, private Leagues $leagues)
     {
     }
 
@@ -45,11 +46,11 @@ class CreateLeagueController implements RequestHandlerInterface
         $name = trim((string) ($body['name'] ?? ''));
 
         if ($name === '') {
-            return new JsonResponse(['errors' => [['status' => '422', 'detail' => 'A league needs a name.']]], 422);
+            return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.name_required')]]], 422);
         }
 
         if (mb_strlen($name) > 189) {
-            return new JsonResponse(['errors' => [['status' => '422', 'detail' => 'That name is too long.']]], 422);
+            return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.name_too_long')]]], 422);
         }
 
         $league = $this->leagues->create([

@@ -6,6 +6,7 @@ use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Leagues;
 use Flarum\Http\RequestUtil;
+use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,7 +23,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  */
 class JoinLeagueController implements RequestHandlerInterface
 {
-    public function __construct(private Leagues $leagues)
+    public function __construct(protected TranslatorInterface $translator, private Leagues $leagues)
     {
     }
 
@@ -35,7 +36,7 @@ class JoinLeagueController implements RequestHandlerInterface
         $league = League::query()->where('slug', $slug)->first();
 
         if ($league === null) {
-            return new JsonResponse(['errors' => [['status' => '404', 'detail' => 'There is no league at that address.']]], 404);
+            return new JsonResponse(['errors' => [['status' => '404', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.league_not_found')]]], 404);
         }
 
         $already = Franchise::query()
@@ -45,13 +46,13 @@ class JoinLeagueController implements RequestHandlerInterface
 
         if ($already === null) {
             if ($league->status !== 'setup') {
-                return new JsonResponse(['errors' => [['status' => '422', 'detail' => 'That league has already started.']]], 422);
+                return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.league_started')]]], 422);
             }
 
             $taken = Franchise::query()->where('league_id', $league->id)->count();
 
             if ($taken >= (int) $league->max_franchises) {
-                return new JsonResponse(['errors' => [['status' => '422', 'detail' => 'That league is full.']]], 422);
+                return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.league_full')]]], 422);
             }
         }
 
