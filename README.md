@@ -17,6 +17,25 @@ php flarum cache:clear
 
 `fantasy:score` runs hourly on Flarum's scheduler.
 
+## How a league runs
+
+1. **Members join.** While a league is taking members, its page has a **Take a franchise**
+   button; a member names their franchise (or leaves it as "Mara's team").
+2. **The commissioner starts the draft.** The order is shuffled and the league stops
+   taking members.
+3. **The draft room** shows who is on the clock, the order, every pick so far, and the
+   teams still available, with search. It's a snake draft: the last pick of a round
+   picks first in the next. Only the franchise on the clock can pick, or the
+   commissioner on its behalf, so the draft never stalls on someone who wandered off.
+   The room refreshes itself every few seconds, and not while the tab is hidden.
+4. **Lineups.** Once every roster is full the league goes live. Each week an owner
+   switches teams in and out of their lineup, up to the league's number of starters.
+   A team locks when its game kicks off. An owner who changes nothing plays last
+   week's lineup, so a missed week isn't a lost one.
+
+A game that kicked off before the draft finished never scores: it's a result the
+owner already knew when they drafted the team.
+
 ## It plays whatever sport its season is
 
 A league plays a **Picks season**, and a season belongs to a competition — so a

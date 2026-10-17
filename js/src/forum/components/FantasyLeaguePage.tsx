@@ -2,7 +2,11 @@ import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
+import Button from 'flarum/common/components/Button';
+import LinkButton from 'flarum/common/components/LinkButton';
 import crestUrl from '../crest';
+import JoinLeagueModal from './JoinLeagueModal';
+import extractText from 'flarum/common/utils/extractText';
 
 declare const m: any;
 
@@ -12,10 +16,17 @@ export default class FantasyLeaguePage extends Page {
   league: any = null;
   rules: any = {};
   table: any[] = [];
+  viewer: any = {};
+  franchises = 0;
+  maxFranchises = 0;
+  starting = false;
 
   oninit(vnode: any) {
     super.oninit(vnode);
+    this.load();
+  }
 
+  load() {
     app
       .request({
         method: 'GET',
@@ -26,6 +37,9 @@ export default class FantasyLeaguePage extends Page {
         this.league = data.league;
         this.rules = data.rules || {};
         this.table = data.table || [];
+        this.viewer = data.viewer || {};
+        this.franchises = data.franchises || 0;
+        this.maxFranchises = data.maxFranchises || 0;
         this.loading = false;
         app.history.push('fantasy', this.league?.name || '');
         m.redraw();
@@ -54,6 +68,8 @@ export default class FantasyLeaguePage extends Page {
 
           <h1>{this.league.name}</h1>
           {this.league.description ? <p className="FantasyPage-intro">{this.league.description}</p> : null}
+
+          {this.actions()}
 
           <section className="FantasySection">
             <h2>{app.translator.trans('ernestdefoe-fantasy.forum.standings')}</h2>
@@ -123,6 +139,91 @@ export default class FantasyLeaguePage extends Page {
         </div>
       </div>
     );
+  }
+
+  /**
+   * The one thing this visitor can do next, with where the league stands:
+   * join while it takes members, start or enter the draft, set a lineup.
+   */
+  actions() {
+    const l = this.league;
+    const v = this.viewer;
+    const slug = l.slug;
+    const items: any[] = [];
+
+    if (v.canJoin) {
+      items.push(
+        <Button
+          className="Button Button--primary"
+          icon="fas fa-user-plus"
+          onclick={() => app.modal.show(JoinLeagueModal, { slug, league: l.name, onjoin: () => this.load() })}
+        >
+          {app.translator.trans('ernestdefoe-fantasy.forum.join')}
+        </Button>
+      );
+    } else if (l.status === 'setup' && !app.session.user && this.franchises < this.maxFranchises) {
+      items.push(
+        <Button className="Button" icon="fas fa-sign-in-alt" onclick={() => app.modal.show(() => import('flarum/forum/components/LogInModal'))}>
+          {app.translator.trans('ernestdefoe-fantasy.forum.log_in_to_join')}
+        </Button>
+      );
+    }
+
+    if (l.status === 'setup' && v.manager) {
+      items.push(
+        <Button
+          className="Button"
+          icon="fas fa-flag-checkered"
+          loading={this.starting}
+          disabled={this.franchises < 2}
+          title={this.franchises < 2 ? extractText(app.translator.trans('ernestdefoe-fantasy.forum.start_draft_needs_two')) : undefined}
+          onclick={() => this.startDraft()}
+        >
+          {app.translator.trans('ernestdefoe-fantasy.forum.start_draft')}
+        </Button>
+      );
+    }
+
+    if (l.status === 'drafting') {
+      items.push(
+        <LinkButton className="Button Button--primary" icon="fas fa-list-ol" href={app.route('fantasy.draft', { slug })}>
+          {app.translator.trans('ernestdefoe-fantasy.forum.draft_room')}
+        </LinkButton>
+      );
+    }
+
+    if (l.status === 'active' && v.franchise) {
+      items.push(
+        <LinkButton className="Button Button--primary" icon="fas fa-clipboard-list" href={app.route('fantasy.lineup', { slug })}>
+          {app.translator.trans('ernestdefoe-fantasy.forum.set_lineup')}
+        </LinkButton>
+      );
+    }
+
+    return (
+      <div className="FantasyActions">
+        <span className={'FantasyStatus FantasyStatus--' + l.status}>{app.translator.trans('ernestdefoe-fantasy.forum.status.' + l.status)}</span>
+        {l.status === 'setup' ? (
+          <span className="FantasyActions-note">
+            {app.translator.trans('ernestdefoe-fantasy.forum.places', { taken: this.franchises, max: this.maxFranchises })}
+          </span>
+        ) : null}
+        {items}
+      </div>
+    );
+  }
+
+  startDraft() {
+    if (!confirm(extractText(app.translator.trans('ernestdefoe-fantasy.forum.start_draft_confirm')))) return;
+    this.starting = true;
+    app
+      .request({ method: 'POST', url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.league.slug)}/draft/start` })
+      .then(() => m.route.set(app.route('fantasy.draft', { slug: this.league.slug })))
+      .catch((err) => {
+        this.starting = false;
+        m.redraw();
+        throw err;
+      });
   }
 
   rule(key: string) {

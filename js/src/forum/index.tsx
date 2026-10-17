@@ -7,6 +7,8 @@ app.initializers.add('ernestdefoe-fantasy', () => {
   // Code-split: the fantasy pages load when someone opens them.
   app.routes['fantasy.index'] = { path: '/fantasy', component: () => import('./components/FantasyIndexPage') };
   app.routes['fantasy.league'] = { path: '/fantasy/:slug', component: () => import('./components/FantasyLeaguePage') };
+  app.routes['fantasy.draft'] = { path: '/fantasy/:slug/draft', component: () => import('./components/FantasyDraftPage') };
+  app.routes['fantasy.lineup'] = { path: '/fantasy/:slug/lineup', component: () => import('./components/FantasyLineupPage') };
 
   /*
    * 🚨 `IndexSidebar`, not `IndexPage`. Flarum 2 moved the index nav into its

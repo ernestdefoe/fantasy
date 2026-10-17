@@ -5,6 +5,7 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
+use Flarum\Http\RequestUtil;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Laminas\Diactoros\Response\JsonResponse;
@@ -29,6 +30,7 @@ class LeagueController implements RequestHandlerInterface
         }
 
         $competition = $league->competition();
+        $actor = RequestUtil::getActor($request);
 
         $franchises = Franchise::query()
             ->where('league_id', $league->id)
@@ -97,6 +99,14 @@ class LeagueController implements RequestHandlerInterface
                 'points_per_margin' => (float) $league->points_per_margin,
             ],
             'table' => $table,
+            // What the page offers this visitor: join, run the draft, set a lineup.
+            'viewer' => [
+                'franchise' => ($mine = $franchises->first(fn ($f) => $actor->exists && (int) $f->user_id === (int) $actor->id)) ? (int) $mine->id : null,
+                'manager' => $league->canManage($actor),
+                'canJoin' => $actor->exists && ! $mine && $league->status === 'setup' && $franchises->count() < (int) $league->max_franchises,
+            ],
+            'franchises' => $franchises->count(),
+            'maxFranchises' => (int) $league->max_franchises,
         ]);
     }
 }

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $league_id
  * @property int $user_id
  * @property string $name
+ * @property int|null $draft_position
  * @property \Carbon\Carbon|null $created_at
  * @property \Carbon\Carbon|null $updated_at
  * @property-read User|null $user
@@ -22,9 +23,9 @@ class Franchise extends AbstractModel
 
     protected $table = 'fantasy_franchises';
 
-    protected $fillable = ['league_id', 'user_id', 'name'];
+    protected $fillable = ['league_id', 'user_id', 'name', 'draft_position'];
 
-    protected $casts = ['league_id' => 'integer', 'user_id' => 'integer'];
+    protected $casts = ['league_id' => 'integer', 'user_id' => 'integer', 'draft_position' => 'integer'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo

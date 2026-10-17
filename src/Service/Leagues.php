@@ -6,6 +6,7 @@ use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Flarum\User\User;
 use Illuminate\Support\Str;
 
 /** Creating and joining leagues. */
@@ -90,7 +91,7 @@ class Leagues
         return Franchise::query()->create([
             'league_id' => $league->id,
             'user_id' => $userId,
-            'name' => Str::limit(trim($name) ?: 'Franchise', 119, ''),
+            'name' => Str::limit(trim($name) ?: $this->defaultName($userId), 119, ''),
         ]);
     }
 
@@ -105,6 +106,14 @@ class Leagues
         $value = $this->settings?->get('ernestdefoe-fantasy.default_'.$key);
 
         return $value === null || $value === '' ? self::FALLBACK[$key] : (int) $value;
+    }
+
+    /** "Mara Ellison's team" for a member who didn't name theirs. */
+    private function defaultName(int $userId): string
+    {
+        $user = User::query()->find($userId);
+
+        return (string) resolve('translator')->trans('ernestdefoe-fantasy.api.default_franchise', ['name' => $user ? $user->display_name : '']);
     }
 
     private function uniqueSlug(string $name): string

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $season_id
  * @property int|null $commissioner_id
  * @property string $status
+ * @property \Carbon\Carbon|null $activated_at
  * @property int $max_franchises
  * @property int $roster_size
  * @property int $starters
@@ -65,7 +66,14 @@ class League extends AbstractModel
         'win_bonus' => 'float',
         'shutout_bonus' => 'float',
         'points_per_margin' => 'float',
+        'activated_at' => 'datetime',
     ];
+
+    /** The commissioner runs the league; an admin can step in for one who has gone quiet. */
+    public function canManage(\Flarum\User\User $actor): bool
+    {
+        return $actor->exists && ((int) $actor->id === (int) $this->commissioner_id || $actor->isAdmin());
+    }
 
     /** @return HasMany<Franchise, $this> */
     public function franchises(): HasMany

@@ -3,9 +3,14 @@
 namespace ErnestDefoe\Fantasy;
 
 use ErnestDefoe\Fantasy\Api\Controller\CreateLeagueController;
+use ErnestDefoe\Fantasy\Api\Controller\DraftController;
+use ErnestDefoe\Fantasy\Api\Controller\DraftPickController;
 use ErnestDefoe\Fantasy\Api\Controller\JoinLeagueController;
 use ErnestDefoe\Fantasy\Api\Controller\LeagueController;
 use ErnestDefoe\Fantasy\Api\Controller\LeaguesController;
+use ErnestDefoe\Fantasy\Api\Controller\LineupController;
+use ErnestDefoe\Fantasy\Api\Controller\SaveLineupController;
+use ErnestDefoe\Fantasy\Api\Controller\StartDraftController;
 use ErnestDefoe\Fantasy\Console\ScoreCommand;
 use Flarum\Extend;
 
@@ -22,7 +27,9 @@ return [
         ->jsDirectory(__DIR__.'/js/dist/forum')
         ->css(__DIR__.'/resources/less/forum.less')
         ->route('/fantasy', 'fantasy.index')
-        ->route('/fantasy/{slug}', 'fantasy.league'),
+        ->route('/fantasy/{slug}', 'fantasy.league')
+        ->route('/fantasy/{slug}/draft', 'fantasy.draft')
+        ->route('/fantasy/{slug}/lineup', 'fantasy.lineup'),
 
     (new Extend\Frontend('admin'))
         ->js(__DIR__.'/js/dist/admin.js'),
@@ -58,7 +65,12 @@ return [
         ->get('/fantasy/leagues', 'fantasy.api.leagues', LeaguesController::class)
         ->get('/fantasy/league', 'fantasy.api.league', LeagueController::class)
         ->post('/fantasy/leagues', 'fantasy.api.leagues.create', CreateLeagueController::class)
-        ->post('/fantasy/leagues/{slug}/join', 'fantasy.api.leagues.join', JoinLeagueController::class),
+        ->post('/fantasy/leagues/{slug}/join', 'fantasy.api.leagues.join', JoinLeagueController::class)
+        ->post('/fantasy/leagues/{slug}/draft/start', 'fantasy.api.draft.start', StartDraftController::class)
+        ->get('/fantasy/draft', 'fantasy.api.draft', DraftController::class)
+        ->post('/fantasy/leagues/{slug}/draft/pick', 'fantasy.api.draft.pick', DraftPickController::class)
+        ->get('/fantasy/lineup', 'fantasy.api.lineup', LineupController::class)
+        ->post('/fantasy/leagues/{slug}/lineup', 'fantasy.api.lineup.save', SaveLineupController::class),
 
     (new Extend\Console())
         ->command(ScoreCommand::class)

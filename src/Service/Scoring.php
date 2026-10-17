@@ -22,13 +22,16 @@ use Illuminate\Support\Carbon;
  */
 class Scoring
 {
-    public function __construct(protected ConnectionInterface $db)
+    public function __construct(protected ConnectionInterface $db, protected Lineups $lineups)
     {
     }
 
     /** @return array{scored: int} */
     public function week(League $league, int $weekId): array
     {
+        // An owner who set nothing this week plays last week's lineup, not none.
+        $this->lineups->carryOver($league, $weekId);
+
         $started = $this->db->table('fantasy_lineups')
             ->where('league_id', $league->id)
             ->where('week_id', $weekId)
@@ -50,6 +53,12 @@ class Scoring
             $game = $games[(int) $row->team_id] ?? null;
 
             if ($game === null || ! $this->isFinal($game)) {
+                continue;
+            }
+
+            // 🚨 A game that kicked off before the league went live is a result
+            // the owner already knew when they drafted the team. It never scores.
+            if ($league->activated_at !== null && $game->match_date !== null && Carbon::parse($game->match_date)->lt($league->activated_at)) {
                 continue;
             }
 
