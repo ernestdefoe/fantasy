@@ -1,5 +1,6 @@
 import app from 'flarum/forum/app';
-import Page from 'flarum/common/components/Page';
+import type Mithril from 'mithril';
+import Page, { IPageAttrs } from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
 import Button from 'flarum/common/components/Button';
@@ -7,10 +8,11 @@ import Switch from 'flarum/common/components/Switch';
 import Icon from 'flarum/common/components/Icon';
 import extractText from 'flarum/common/utils/extractText';
 import crestUrl from '../crest';
+import type { LineupData, LineupGame, LineupTeam } from '../types';
 
 declare const m: any;
 
-const t = (key: string, params?: any) => app.translator.trans('ernestdefoe-fantasy.forum.lineup.' + key, params);
+const t = (key: string, params: Record<string, unknown> = {}) => app.translator.trans('ernestdefoe-fantasy.forum.lineup.' + key, params);
 
 /**
  * Who starts this week. Every team on the roster with its game; switch a team
@@ -19,12 +21,12 @@ const t = (key: string, params?: any) => app.translator.trans('ernestdefoe-fanta
  */
 export default class FantasyLineupPage extends Page {
   loading = true;
-  data: any = null;
+  data: LineupData | null = null;
   chosen = new Set<number>();
   saved = new Set<number>();
   saving = false;
 
-  oninit(vnode: any) {
+  oninit(vnode: Mithril.Vnode<IPageAttrs, this>) {
     super.oninit(vnode);
     this.load();
   }
@@ -32,14 +34,14 @@ export default class FantasyLineupPage extends Page {
   load(week?: number) {
     this.loading = true;
     return app
-      .request<any>({
+      .request<LineupData>({
         method: 'GET',
         url: `${app.forum.attribute('apiUrl')}/fantasy/lineup`,
         params: { slug: m.route.param('slug'), week: week || undefined },
       })
-      .then((data) => {
+      .then((data: LineupData) => {
         this.data = data;
-        this.saved = new Set(data.teams.filter((x: any) => x.starting).map((x: any) => x.id));
+        this.saved = new Set(data.teams.filter((x) => x.starting).map((x) => x.id));
         this.chosen = new Set(this.saved);
         this.loading = false;
         app.setTitle(extractText(t('title', { franchise: data.franchise.name })));
@@ -81,9 +83,9 @@ export default class FantasyLineupPage extends Page {
                   className="FormControl FantasyLineup-week"
                   value={String(week)}
                   aria-label={extractText(t('week'))}
-                  onchange={(e: any) => this.load(Number(e.target.value))}
+                  onchange={(e: Event) => this.load(Number((e.target as HTMLSelectElement).value))}
                 >
-                  {weeks.map((w: any) => (
+                  {weeks.map((w) => (
                     <option value={String(w.id)}>{w.name}</option>
                   ))}
                 </select>
@@ -93,7 +95,7 @@ export default class FantasyLineupPage extends Page {
               </div>
 
               {teams.length ? (
-                <ul className={'FantasyLineup' + (this.loading ? ' is-loading' : '')}>{teams.map((team: any) => this.row(team, league))}</ul>
+                <ul className={'FantasyLineup' + (this.loading ? ' is-loading' : '')}>{teams.map((team) => this.row(team))}</ul>
               ) : (
                 <p className="FantasyPage-intro">{t('empty')}</p>
               )}
@@ -114,7 +116,7 @@ export default class FantasyLineupPage extends Page {
     );
   }
 
-  row(team: any, league: any) {
+  row(team: LineupTeam) {
     const game = team.game;
     const locked = !!game?.locked;
     const on = this.chosen.has(team.id);
@@ -148,7 +150,7 @@ export default class FantasyLineupPage extends Page {
   }
 
   /** "vs Bulls · Sat 3:30 PM", "at Bulls · Final 28–14", or "No game this week". */
-  game(game: any) {
+  game(game: LineupGame | null) {
     if (!game) return t('bye');
 
     const where = t(game.home ? 'vs' : 'at', { team: game.opponent.name });
@@ -168,8 +170,8 @@ export default class FantasyLineupPage extends Page {
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data.league.slug)}/lineup`,
-        body: { weekId: this.data.week, teamIds: [...this.chosen] },
+        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data!.league.slug)}/lineup`,
+        body: { weekId: this.data!.week, teamIds: [...this.chosen] },
       })
       .then(() => {
         this.saving = false;

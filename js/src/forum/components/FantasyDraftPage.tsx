@@ -1,15 +1,17 @@
 import app from 'flarum/forum/app';
-import Page from 'flarum/common/components/Page';
+import type Mithril from 'mithril';
+import Page, { IPageAttrs } from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
 import Button from 'flarum/common/components/Button';
 import LinkButton from 'flarum/common/components/LinkButton';
 import extractText from 'flarum/common/utils/extractText';
 import crestUrl from '../crest';
+import type { DraftData, DraftClock, DraftFranchise, DraftPick, AvailableTeam } from '../types';
 
 declare const m: any;
 
-const t = (key: string, params?: any) => app.translator.trans('ernestdefoe-fantasy.forum.draft.' + key, params);
+const t = (key: string, params: Record<string, unknown> = {}) => app.translator.trans('ernestdefoe-fantasy.forum.draft.' + key, params);
 
 /**
  * The draft room. Snake order, one pick at a time: the franchise on the clock
@@ -19,13 +21,13 @@ const t = (key: string, params?: any) => app.translator.trans('ernestdefoe-fanta
  */
 export default class FantasyDraftPage extends Page {
   loading = true;
-  data: any = null;
+  data: DraftData | null = null;
   search = '';
   picking: number | null = null;
-  timer: any = null;
-  searchTimer: any = null;
+  timer: ReturnType<typeof setInterval> | undefined;
+  searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-  oninit(vnode: any) {
+  oninit(vnode: Mithril.Vnode<IPageAttrs, this>) {
     super.oninit(vnode);
     this.load();
     this.timer = setInterval(() => {
@@ -33,7 +35,7 @@ export default class FantasyDraftPage extends Page {
     }, 5000);
   }
 
-  onremove(vnode: any) {
+  onremove(vnode: Mithril.VnodeDOM<IPageAttrs, this>) {
     super.onremove(vnode);
     clearInterval(this.timer);
     clearTimeout(this.searchTimer);
@@ -41,12 +43,12 @@ export default class FantasyDraftPage extends Page {
 
   load() {
     return app
-      .request<any>({
+      .request<DraftData>({
         method: 'GET',
         url: `${app.forum.attribute('apiUrl')}/fantasy/draft`,
         params: { slug: m.route.param('slug'), q: this.search },
       })
-      .then((data) => {
+      .then((data: DraftData) => {
         const first = this.data === null;
         this.data = data;
         this.loading = false;
@@ -69,8 +71,8 @@ export default class FantasyDraftPage extends Page {
       );
 
     const { league, order, clock, history, available, viewer } = this.data;
-    const byId: Record<number, any> = {};
-    order.forEach((f: any) => (byId[f.id] = f));
+    const byId: Record<number, DraftFranchise> = {};
+    order.forEach((f) => (byId[f.id] = f));
 
     return (
       <div className="FantasyPage FantasyPage--draft">
@@ -92,8 +94,8 @@ export default class FantasyDraftPage extends Page {
                     value={this.search}
                     placeholder={extractText(t('search'))}
                     aria-label={extractText(t('search'))}
-                    oninput={(e: any) => {
-                      this.search = e.target.value;
+                    oninput={(e: InputEvent) => {
+                      this.search = (e.target as HTMLInputElement).value;
                       clearTimeout(this.searchTimer);
                       this.searchTimer = setTimeout(() => this.load(), 250);
                     }}
@@ -101,9 +103,9 @@ export default class FantasyDraftPage extends Page {
                 </div>
                 {available.length ? (
                   <ul className="FantasyDraft-teams">
-                    {available.map((team: any) => (
+                    {available.map((team) => (
                       <li className="FantasyDraft-team" key={team.id}>
-                        {this.crest(team.logo_path, team.name, 32)}
+                        {this.crest(team.logo_path || '', team.name, 32)}
                         <span className="FantasyDraft-teamName">
                           <b>{team.name}</b>
                           {team.conference ? <small>{team.conference}</small> : null}
@@ -129,7 +131,7 @@ export default class FantasyDraftPage extends Page {
               <aside className="FantasyDraft-side">
                 <h2>{t('order')}</h2>
                 <ol className="FantasyDraft-order">
-                  {order.map((f: any) => (
+                  {order.map((f) => (
                     <li className={clock && clock.franchise === f.id ? 'is-onClock' : ''} key={f.id}>
                       <span className="FantasyDraft-orderName">
                         <b>{f.name}</b>
@@ -152,7 +154,7 @@ export default class FantasyDraftPage extends Page {
     );
   }
 
-  banner(league: any, clock: any, byId: Record<number, any>, viewer: any) {
+  banner(league: DraftData['league'], clock: DraftClock | null, byId: Record<number, DraftFranchise>, viewer: DraftData['viewer']) {
     if (league.status === 'setup') {
       return <p className="FantasyDraft-banner">{t('not_started')}</p>;
     }
@@ -183,7 +185,7 @@ export default class FantasyDraftPage extends Page {
   }
 
   /** Every pick so far, newest first, numbered the way a draft is read out: round.pick. */
-  picks(history: any[], byId: Record<number, any>, teams: number) {
+  picks(history: DraftPick[], byId: Record<number, DraftFranchise>, teams: number) {
     if (!history.length) return null;
 
     return (
@@ -193,7 +195,7 @@ export default class FantasyDraftPage extends Page {
           {history
             .slice()
             .reverse()
-            .map((p: any) => (
+            .map((p) => (
               <li key={p.overall}>
                 <span className="FantasyDraft-pickNo">
                   {Math.ceil(p.overall / teams)}.{((p.overall - 1) % teams) + 1}
@@ -218,12 +220,12 @@ export default class FantasyDraftPage extends Page {
     );
   }
 
-  pick(team: any) {
+  pick(team: AvailableTeam) {
     this.picking = team.id;
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data.league.slug)}/draft/pick`,
+        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data!.league.slug)}/draft/pick`,
         body: { teamId: team.id },
       })
       .then(() => {
