@@ -71,8 +71,15 @@ comparable and stops a basketball table reading like a phone number.
 because a basketball shutout cannot happen. A rule listed at 0.00 that can never
 pay out reads as a broken rule rather than as an impossible event.
 
-Everything stays editable; this only decides what a new league starts from, and
-it never touches a league that already exists.
+This only decides what a new league starts from, and it never touches a league
+that already exists.
+
+## Settings
+
+The admin settings (franchises per league, teams on a roster, teams in a lineup)
+are the **defaults for new leagues**. A league takes them when it is started and
+keeps them: changing a setting later only affects leagues started afterwards.
+There is no screen for changing an existing league's size or scoring.
 
 ## Things worth knowing
 
@@ -92,8 +99,8 @@ so rather than shown a stack trace.
 
 🚨 **The workings are stored, not just the total.** Points scored, allowed, the
 win, the shutout and the bonus are written beside the points — because a
-commissioner fixing a broken rule in week three would otherwise make every
-earlier week unexplainable.
+scoring rule corrected mid-season would otherwise make every earlier week
+unexplainable.
 
 ## Requires
 
