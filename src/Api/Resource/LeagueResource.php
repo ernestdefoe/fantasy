@@ -93,10 +93,15 @@ class LeagueResource extends AbstractDatabaseResource
         return [SortColumn::make('id')];
     }
 
-    /** A league's address is its slug. */
+    /**
+     * A league's address is its slug; its numeric id (which `links.self` and
+     * the Create response's Location use) finds it too. A slug wins when a
+     * league happens to be named with a number.
+     */
     public function find(string $id, Context $context): ?object
     {
-        return $this->query($context)->where('slug', $id)->first();
+        return $this->query($context)->where('slug', $id)->first()
+            ?? (ctype_digit($id) ? $this->query($context)->find((int) $id) : null);
     }
 
     /** Each league's sport for a whole page in one query, not one per league. */

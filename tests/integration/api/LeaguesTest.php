@@ -108,6 +108,16 @@ class LeaguesTest extends TestCase
     public function a_league_that_does_not_exist_is_not_found()
     {
         $this->assertSame(404, $this->call('GET', '/api/fantasy-leagues/nope')->getStatusCode());
+        $this->assertSame(404, $this->call('GET', '/api/fantasy-leagues/999')->getStatusCode());
+    }
+
+    #[Test]
+    public function a_league_is_found_by_the_id_its_own_links_use()
+    {
+        $self = $this->body($this->call('GET', '/api/fantasy-leagues/hoops'))['data']['links']['self'] ?? '';
+        $this->assertStringEndsWith('/fantasy-leagues/2', $self);
+
+        $this->assertSame('hoops', $this->body($this->call('GET', '/api/fantasy-leagues/2'))['data']['attributes']['slug']);
     }
 
     #[Test]

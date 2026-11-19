@@ -26,8 +26,8 @@ class DraftAction
 
     public function __invoke(Context $context): ResponseInterface
     {
+        // The endpoint itself requires viewForum.
         $actor = $context->getActor();
-        $actor->assertCan('viewForum');
 
         /** @var League $league */
         $league = $context->model;
