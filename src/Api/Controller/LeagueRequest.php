@@ -4,6 +4,7 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
+use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -15,6 +16,13 @@ trait LeagueRequest
         $slug = (string) ($request->getQueryParams()['slug'] ?? '');
 
         return $slug === '' ? null : League::query()->where('slug', $slug)->first();
+    }
+
+    /** Joining, drafting and lineups: a member who holds `fantasy.play` (not suspended, email confirmed). */
+    protected function assertPlayer(User $actor): void
+    {
+        $actor->assertRegistered();
+        $actor->assertCan('fantasy.play');
     }
 
     protected function franchiseOf(League $league, int $userId): ?Franchise

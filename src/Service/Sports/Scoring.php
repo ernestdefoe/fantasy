@@ -14,9 +14,8 @@ namespace ErnestDefoe\Fantasy\Service\Sports;
  * gridiron, an absurd 110-point week in basketball, and rounding error in
  * soccer.
  *
- * So a new league starts from its own sport's numbers. Everything stays
- * editable: a commissioner who wants football's rates in a basketball league
- * can have them, and nothing here overrides a league that already exists.
+ * So a new league starts from its own sport's numbers, and keeps them: nothing
+ * here changes a league that already exists.
  *
  * 🚨 The defaults below are calibrated so a typical starting lineup scores
  * roughly the same TOTAL in any sport — around a hundred points a week for four
@@ -138,10 +137,8 @@ class Scoring
     /**
      * Whether a shutout is a thing that can happen.
      *
-     * 🚨 Used to hide the rule rather than to zero it. A commissioner who
-     * deliberately sets a shutout bonus in a basketball league keeps it — this
-     * only decides whether the field is worth putting in front of somebody who
-     * has not.
+     * 🚨 Used to hide the rule on the league page rather than to zero it in
+     * the scoring: a rule listed at 0.00 that can never pay out reads as broken.
      */
     public static function shutoutsHappen(?string $league): bool
     {

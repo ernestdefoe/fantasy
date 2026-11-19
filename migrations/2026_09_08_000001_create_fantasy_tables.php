@@ -30,8 +30,8 @@ return [
 
             $table->unsignedInteger('commissioner_id')->nullable();
 
-            // setup → drafting → active → complete. A string rather than an
-            // enum so a fifth state is code and not a schema change.
+            // setup → drafting → active. A string rather than an enum so a
+            // new state is code and not a schema change.
             $table->string('status', 20)->default('setup');
 
             $table->unsignedSmallInteger('max_franchises')->default(12);
@@ -99,9 +99,9 @@ return [
             $table->unsignedInteger('team_id');
 
             /*
-             * 🚨 The WORKINGS are stored, not just the total. A commissioner
-             * fixing a broken rule in week three would otherwise make every
-             * earlier week unexplainable: re-deriving an old score under
+             * 🚨 The WORKINGS are stored, not just the total. A rule changed in
+             * week three would otherwise make every earlier week
+             * unexplainable: re-deriving an old score under
              * today's rules gives a different answer to the one on the table.
              */
             $table->decimal('points', 8, 2)->default(0);

@@ -5,6 +5,7 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 use ErnestDefoe\Fantasy\Service\Leagues;
 use Flarum\Http\RequestUtil;
 use Flarum\Locale\TranslatorInterface;
+use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -20,12 +21,13 @@ use Psr\Http\Server\RequestHandlerInterface;
  * creation time would mean every league carried whatever the form's own
  * defaults happened to be, and the admin screen would govern nothing — which
  * is precisely the state this extension was in before this controller existed:
- * three settings and no code path that could reach them. A commissioner who
- * wants different numbers changes them on their own league afterwards.
+ * three settings and no code path that could reach them.
  */
 class CreateLeagueController implements RequestHandlerInterface
 {
-    public function __construct(protected TranslatorInterface $translator, private Leagues $leagues)
+    use LeagueRequest;
+
+    public function __construct(protected TranslatorInterface $translator, private Leagues $leagues, private ConnectionInterface $db)
     {
     }
 
@@ -45,18 +47,17 @@ class CreateLeagueController implements RequestHandlerInterface
         $body = (array) ($request->getParsedBody() ?? []);
         $name = trim((string) ($body['name'] ?? ''));
 
-        if ($name === '') {
-            return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.name_required')]]], 422);
-        }
+        $description = trim((string) ($body['description'] ?? ''));
+        $seasonId = (int) ($body['seasonId'] ?? 0);
 
-        if (mb_strlen($name) > 189) {
-            return new JsonResponse(['errors' => [['status' => '422', 'detail' => $this->translator->trans('ernestdefoe-fantasy.api.name_too_long')]]], 422);
+        if (($problem = $this->invalid($name, $description, $seasonId)) !== null) {
+            return $this->problem($problem);
         }
 
         $league = $this->leagues->create([
             'name' => $name,
-            'description' => (string) ($body['description'] ?? ''),
-            'season_id' => (int) ($body['seasonId'] ?? 0),
+            'description' => $description,
+            'season_id' => $seasonId,
         ], (int) $actor->id);
 
         return new JsonResponse([
@@ -70,5 +71,18 @@ class CreateLeagueController implements RequestHandlerInterface
                 'starters' => (int) $league->starters,
             ],
         ], 201);
+    }
+
+    /** Why this league can't be created, as a locale key, or null when it can. */
+    private function invalid(string $name, string $description, int $seasonId): ?string
+    {
+        return match (true) {
+            $name === '' => 'name_required',
+            mb_strlen($name) > 189 => 'name_too_long',
+            mb_strlen($description) > 2000 => 'description_too_long',
+            // A league plays one Picks season; one that does not exist could never be drafted.
+            $seasonId < 1, ! $this->db->table('picks_seasons')->where('id', $seasonId)->exists() => 'no_such_season',
+            default => null,
+        };
     }
 }

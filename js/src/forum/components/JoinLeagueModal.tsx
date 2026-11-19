@@ -3,12 +3,11 @@ import FormModal, { IFormModalAttrs } from 'flarum/common/components/FormModal';
 import Button from 'flarum/common/components/Button';
 import Stream from 'flarum/common/utils/Stream';
 
-declare const m: any;
-
 interface JoinLeagueModalAttrs extends IFormModalAttrs {
-  slug: string;
-  league: string;
-  onjoin: () => void;
+  // Optional only so the class fits app.modal.show()'s typing; FantasyLeaguePage always passes all three.
+  slug?: string;
+  league?: string;
+  onjoin?: () => void;
 }
 
 /** Take a franchise in a league that is still taking members: just a name for it. */
@@ -53,12 +52,12 @@ export default class JoinLeagueModal extends FormModal<JoinLeagueModalAttrs> {
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.attrs.slug)}/join`,
+        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.attrs.slug ?? '')}/join`,
         body: { name: this.name().trim() },
       })
       .then(() => {
         this.hide();
-        this.attrs.onjoin();
+        this.attrs.onjoin?.();
       })
       .catch((err) => {
         this.saving = false;

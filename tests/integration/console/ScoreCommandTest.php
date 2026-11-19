@@ -76,4 +76,18 @@ class ScoreCommandTest extends ConsoleTestCase
         $this->assertSame($first, $this->week3());
         $this->assertCount(2, $first);
     }
+
+    #[Test]
+    public function weeks_past_the_window_and_drafting_leagues_are_left_alone()
+    {
+        // Week 3's games were three weeks ago: already scored, not re-read every hour.
+        $this->database()->table('picks_events')->where('week_id', 3)->update(['match_date' => Carbon::now()->subDays(21)]);
+        $this->assertStringContainsString('0 team-weeks scored', $this->runCommand(['command' => 'fantasy:score']));
+
+        // A league still drafting has no lineups to score.
+        $this->database()->table('picks_events')->where('week_id', 3)->update(['match_date' => Carbon::now()->subHour()]);
+        $this->database()->table('fantasy_leagues')->where('id', 2)->update(['status' => 'drafting']);
+        $this->assertStringContainsString('No active leagues', $this->runCommand(['command' => 'fantasy:score']));
+        $this->assertSame([], $this->week3());
+    }
 }

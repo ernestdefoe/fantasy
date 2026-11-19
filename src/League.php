@@ -2,7 +2,6 @@
 
 namespace ErnestDefoe\Fantasy;
 
-use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Database\AbstractModel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -81,40 +80,12 @@ class League extends AbstractModel
         return $this->hasMany(Franchise::class, 'league_id');
     }
 
-    /**
-     * Which competition this league's season is, or '' when Picks does not say.
-     *
-     * 🚨 Read through a column probe, not selected outright. Picks gained
-     * `picks_seasons.league` after this extension existed, and a Fantasy
-     * running against an older Picks is ordinary — not something that should
-     * throw an unknown-column error the moment somebody creates a league.
-     */
+    /** Which competition this league's season is (Picks' `picks_seasons.league`), or '' when it has none. */
     public function competition(): string
     {
-        static $has = null;
-
-        try {
-            if ($has === null) {
-                $has = $this->getConnection()->getSchemaBuilder()->hasColumn('picks_seasons', 'league');
-            }
-
-            if (! $has) {
-                return '';
-            }
-
-            $row = $this->getConnection()->table('picks_seasons')->where('id', $this->season_id)->first();
-
-            return (string) ($row->league ?? '');
-        } catch (\Throwable) {
-            return '';
-        }
+        return (string) $this->getConnection()->table('picks_seasons')->where('id', $this->season_id)->value('league');
     }
 
-    /**
-     * The starting rules for a league in this competition.
-     *
-     * @return array<string, float>
-     */
     /**
      * The competition of many seasons at once, keyed by season id — one query
      * for a whole list of leagues rather than one per league.
@@ -130,25 +101,10 @@ class League extends AbstractModel
             return [];
         }
 
-        $connection = (new static())->getConnection();
-
-        try {
-            if (! $connection->getSchemaBuilder()->hasColumn('picks_seasons', 'league')) {
-                return [];
-            }
-
-            return $connection->table('picks_seasons')
-                ->whereIn('id', $seasonIds)
-                ->pluck('league', 'id')
-                ->map(fn ($league) => (string) $league)
-                ->all();
-        } catch (\Throwable) {
-            return [];
-        }
-    }
-
-    public function sportDefaults(): array
-    {
-        return SportScoring::defaultsFor($this->competition());
+        return (new static())->getConnection()->table('picks_seasons')
+            ->whereIn('id', $seasonIds)
+            ->pluck('league', 'id')
+            ->map(fn ($league) => (string) $league)
+            ->all();
     }
 }

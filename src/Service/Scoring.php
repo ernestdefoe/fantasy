@@ -50,59 +50,12 @@ class Scoring
         $now = Carbon::now();
 
         foreach ($started as $row) {
-            $game = $games[(int) $row->team_id] ?? null;
+            $scoredRow = $this->score($league, $weekId, $row, $games[(int) $row->team_id] ?? null, $now);
 
-            if ($game === null || ! $this->isFinal($game)) {
-                continue;
+            if ($scoredRow !== null) {
+                $rows[] = $scoredRow;
+                $scored++;
             }
-
-            // 🚨 A game that kicked off before the league went live is a result
-            // the owner already knew when they drafted the team. It never scores.
-            if ($league->activated_at !== null && $game->match_date !== null && Carbon::parse($game->match_date)->lt($league->activated_at)) {
-                continue;
-            }
-
-            $isHome = (int) $game->home_team_id === (int) $row->team_id;
-            $for = (int) ($isHome ? $game->home_score : $game->away_score);
-            $against = (int) ($isHome ? $game->away_score : $game->home_score);
-
-            $won = $for > $against;
-            $shutout = $won && $against === 0;
-
-            /*
-             * 🚨 Margin counts only in a WIN, and only the margin of victory.
-             * Multiplying a negative margin by the same rate would make a heavy
-             * defeat cost more than the points-allowed rule already charges for
-             * it — the same penalty twice.
-             */
-            $margin = $won ? $for - $against : 0;
-
-            $bonus = ($won ? (float) $league->win_bonus : 0.0)
-                + ($shutout ? (float) $league->shutout_bonus : 0.0);
-
-            $points = $for * (float) $league->points_per_point
-                + $against * (float) $league->points_per_point_allowed
-                + $margin * (float) $league->points_per_margin
-                + $bonus;
-
-            $rows[] = [
-                'league_id' => $league->id,
-                'franchise_id' => (int) $row->franchise_id,
-                'week_id' => $weekId,
-                'team_id' => (int) $row->team_id,
-                'points' => round($points, 2),
-                // The workings, so an old week stays explainable after a
-                // commissioner changes a rule.
-                'scored' => $for,
-                'allowed' => $against,
-                'won' => $won,
-                'shutout' => $shutout,
-                'bonus' => round($bonus, 2),
-                'updated_at' => $now,
-                'created_at' => $now,
-            ];
-
-            $scored++;
         }
 
         if ($rows !== []) {
@@ -114,6 +67,61 @@ class Scoring
         }
 
         return ['scored' => $scored];
+    }
+
+    /**
+     * One started team's points for the week, or null while its game is not
+     * final (or kicked off before the league went live).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function score(League $league, int $weekId, object $row, ?object $game, Carbon $now): ?array
+    {
+        if ($game === null || ! $this->isFinal($game)) {
+            return null;
+        }
+
+        // 🚨 A game that kicked off before the league went live is a result
+        // the owner already knew when they drafted the team. It never scores.
+        if ($league->activated_at !== null && $game->match_date !== null && Carbon::parse($game->match_date)->lt($league->activated_at)) {
+            return null;
+        }
+
+        $isHome = (int) $game->home_team_id === (int) $row->team_id;
+        $for = (int) ($isHome ? $game->home_score : $game->away_score);
+        $against = (int) ($isHome ? $game->away_score : $game->home_score);
+
+        $won = $for > $against;
+        $shutout = $won && $against === 0;
+
+        // 🚨 Margin counts only in a WIN: a negative margin would charge a heavy
+        // defeat twice, on top of the points-allowed rule.
+        $margin = $won ? $for - $against : 0;
+
+        $bonus = ($won ? (float) $league->win_bonus : 0.0)
+            + ($shutout ? (float) $league->shutout_bonus : 0.0);
+
+        $points = $for * (float) $league->points_per_point
+            + $against * (float) $league->points_per_point_allowed
+            + $margin * (float) $league->points_per_margin
+            + $bonus;
+
+        return [
+            'league_id' => $league->id,
+            'franchise_id' => (int) $row->franchise_id,
+            'week_id' => $weekId,
+            'team_id' => (int) $row->team_id,
+            'points' => round($points, 2),
+            // The workings, so an old week stays explainable even if the
+            // league's rules are changed later.
+            'scored' => $for,
+            'allowed' => $against,
+            'won' => $won,
+            'shutout' => $shutout,
+            'bonus' => round($bonus, 2),
+            'updated_at' => $now,
+            'created_at' => $now,
+        ];
     }
 
     /** @param list<int> $teamIds */

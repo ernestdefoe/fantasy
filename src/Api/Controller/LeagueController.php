@@ -7,6 +7,7 @@ use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Http\RequestUtil;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -22,6 +23,9 @@ class LeagueController implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $actor = RequestUtil::getActor($request);
+        $actor->assertCan('viewForum');
+
         $slug = (string) ($request->getQueryParams()['slug'] ?? '');
         $league = League::query()->where('slug', $slug)->first();
 
@@ -30,13 +34,61 @@ class LeagueController implements RequestHandlerInterface
         }
 
         $competition = $league->competition();
-        $actor = RequestUtil::getActor($request);
 
         $franchises = Franchise::query()
             ->where('league_id', $league->id)
             ->with('user')
             ->get();
 
+        return new JsonResponse([
+            'league' => [
+                'name' => (string) $league->name,
+                'slug' => (string) $league->slug,
+                'description' => (string) $league->description,
+                'status' => (string) $league->status,
+                'sport' => SportScoring::sportOf($competition),
+                'rosterSize' => (int) $league->roster_size,
+                'starters' => (int) $league->starters,
+            ],
+            'rules' => $this->rules($league, $competition),
+            'table' => $this->table($league, $franchises),
+            // What the page offers this visitor: join, run the draft, set a lineup.
+            'viewer' => [
+                'franchise' => ($mine = $franchises->first(fn ($f) => $actor->exists && (int) $f->user_id === (int) $actor->id)) ? (int) $mine->id : null,
+                'manager' => $league->canManage($actor),
+                'canJoin' => $actor->exists && ! $mine && $league->status === 'setup' && $franchises->count() < (int) $league->max_franchises,
+            ],
+            'franchises' => $franchises->count(),
+            'maxFranchises' => (int) $league->max_franchises,
+        ]);
+    }
+
+    /** The scoring rules as the league page lists them. */
+    private function rules(League $league, string $competition): array
+    {
+        return [
+            'points_per_point' => (float) $league->points_per_point,
+            'points_per_point_allowed' => (float) $league->points_per_point_allowed,
+            'win_bonus' => (float) $league->win_bonus,
+            /*
+             * 🚨 The shutout rule is sent as null where it cannot happen, so
+             * the client omits the row entirely. A basketball league starts
+             * with no shutout bonus because a basketball shutout is
+             * impossible, and a rule listed at 0.00 that can never pay out
+             * reads as a broken rule rather than as an impossible event.
+             */
+            'shutout_bonus' => SportScoring::shutoutsHappen($competition) ? (float) $league->shutout_bonus : null,
+            'points_per_margin' => (float) $league->points_per_margin,
+        ];
+    }
+
+    /**
+     * The standings: each franchise with its points, wins and roster, most points first.
+     *
+     * @param Collection<int, Franchise> $franchises
+     */
+    private function table(League $league, Collection $franchises): array
+    {
         // Every roster in one query, keyed by franchise — not one query per
         // franchise, which is a query per row on a page that lists them all.
         $rosters = $this->db->table('fantasy_rosters as r')
@@ -45,6 +97,7 @@ class LeagueController implements RequestHandlerInterface
             ->get(['r.franchise_id', 't.id', 't.name', 't.logo_path'])
             ->groupBy('franchise_id');
 
+        // Raw only for the aggregates: SUM/COUNT with a CASE run the same on MySQL, PostgreSQL and SQLite.
         $totals = $this->db->table('fantasy_scores')
             ->where('league_id', $league->id)
             ->selectRaw('franchise_id, SUM(points) AS points, SUM(CASE WHEN won THEN 1 ELSE 0 END) AS wins, COUNT(*) AS games')
@@ -60,7 +113,7 @@ class LeagueController implements RequestHandlerInterface
             $table[] = [
                 'id' => (int) $franchise->id,
                 'name' => (string) $franchise->name,
-                'member' => (string) ($franchise->user->username ?? ''),
+                'member' => (string) ($franchise->user->display_name ?? ''),
                 'points' => round((float) ($total->points ?? 0), 2),
                 'wins' => (int) ($total->wins ?? 0),
                 'games' => (int) ($total->games ?? 0),
@@ -74,39 +127,6 @@ class LeagueController implements RequestHandlerInterface
         // Most points first — the table everybody actually reads.
         usort($table, fn (array $a, array $b): int => $b['points'] <=> $a['points']);
 
-        return new JsonResponse([
-            'league' => [
-                'name' => (string) $league->name,
-                'slug' => (string) $league->slug,
-                'description' => (string) $league->description,
-                'status' => (string) $league->status,
-                'sport' => SportScoring::sportOf($competition),
-                'rosterSize' => (int) $league->roster_size,
-                'starters' => (int) $league->starters,
-            ],
-            'rules' => [
-                'points_per_point' => (float) $league->points_per_point,
-                'points_per_point_allowed' => (float) $league->points_per_point_allowed,
-                'win_bonus' => (float) $league->win_bonus,
-                /*
-                 * 🚨 The shutout rule is sent as null where it cannot happen, so
-                 * the client omits the row entirely. A basketball league starts
-                 * with no shutout bonus because a basketball shutout is
-                 * impossible, and a rule listed at 0.00 that can never pay out
-                 * reads as a broken rule rather than as an impossible event.
-                 */
-                'shutout_bonus' => SportScoring::shutoutsHappen($competition) ? (float) $league->shutout_bonus : null,
-                'points_per_margin' => (float) $league->points_per_margin,
-            ],
-            'table' => $table,
-            // What the page offers this visitor: join, run the draft, set a lineup.
-            'viewer' => [
-                'franchise' => ($mine = $franchises->first(fn ($f) => $actor->exists && (int) $f->user_id === (int) $actor->id)) ? (int) $mine->id : null,
-                'manager' => $league->canManage($actor),
-                'canJoin' => $actor->exists && ! $mine && $league->status === 'setup' && $franchises->count() < (int) $league->max_franchises,
-            ],
-            'franchises' => $franchises->count(),
-            'maxFranchises' => (int) $league->max_franchises,
-        ]);
+        return $table;
     }
 }

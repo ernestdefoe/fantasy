@@ -55,12 +55,26 @@ return [
          * maps ONE setting to one attribute, and a callback that tried to
          * assemble the other two would only ever see the value it was given.
          */
-        ->serializeToForum('fantasyMaxFranchises', 'ernestdefoe-fantasy.default_max_franchises', fn ($v) => (int) ($v ?: 12))
-        ->serializeToForum('fantasyRosterSize', 'ernestdefoe-fantasy.default_roster_size', fn ($v) => (int) ($v ?: 8))
-        ->serializeToForum('fantasyStarters', 'ernestdefoe-fantasy.default_starters', fn ($v) => (int) ($v ?: 4)),
+        ->default('ernestdefoe-fantasy.default_max_franchises', 12)
+        ->default('ernestdefoe-fantasy.default_roster_size', 8)
+        ->default('ernestdefoe-fantasy.default_starters', 4)
+        // A cleared field goes back to the default rather than meaning 0.
+        ->resetWhen('ernestdefoe-fantasy.default_max_franchises', fn ($v) => $v === '' || $v === null)
+        ->resetWhen('ernestdefoe-fantasy.default_roster_size', fn ($v) => $v === '' || $v === null)
+        ->resetWhen('ernestdefoe-fantasy.default_starters', fn ($v) => $v === '' || $v === null)
+        ->serializeToForum('fantasyMaxFranchises', 'ernestdefoe-fantasy.default_max_franchises', fn ($v) => (int) $v)
+        ->serializeToForum('fantasyRosterSize', 'ernestdefoe-fantasy.default_roster_size', fn ($v) => (int) $v)
+        ->serializeToForum('fantasyStarters', 'ernestdefoe-fantasy.default_starters', fn ($v) => (int) $v),
 
     new Extend\Locales(__DIR__.'/resources/locale'),
 
+    /*
+     * Plain request handlers rather than a JSON:API resource: each one answers
+     * one screen (the league table with standings, the draft room, a week's
+     * lineup) or runs one game action (join, start the draft, pick, save a
+     * lineup). None of them is a model's create/read/update/delete, so a
+     * resource would only wrap them.
+     */
     (new Extend\Routes('api'))
         ->get('/fantasy/leagues', 'fantasy.api.leagues', LeaguesController::class)
         ->get('/fantasy/league', 'fantasy.api.league', LeagueController::class)

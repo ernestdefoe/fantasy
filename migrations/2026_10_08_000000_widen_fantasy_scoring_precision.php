@@ -9,8 +9,7 @@ use Illuminate\Database\Schema\Builder;
  * every basketball score came out half a point off a game. Three decimal places
  * hold every default in Sports\Scoring.
  *
- * Leagues created before this keep the rounded value they were stored with;
- * a commissioner can set it again.
+ * Leagues created before this keep the rounded value they were stored with.
  */
 return [
     'up' => function (Builder $schema) {
@@ -23,7 +22,14 @@ return [
         });
     },
 
+    // Back to two places (rounding any third place again).
     'down' => function (Builder $schema) {
-        // Left wide: narrowing would round the rules again.
+        $schema->table('fantasy_leagues', function (Blueprint $table) {
+            $table->decimal('points_per_point', 6, 2)->default(1)->change();
+            $table->decimal('points_per_point_allowed', 6, 2)->default(-0.5)->change();
+            $table->decimal('win_bonus', 6, 2)->default(10)->change();
+            $table->decimal('shutout_bonus', 6, 2)->default(8)->change();
+            $table->decimal('points_per_margin', 6, 2)->default(0.25)->change();
+        });
     },
 ];

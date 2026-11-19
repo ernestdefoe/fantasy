@@ -5,6 +5,7 @@ namespace ErnestDefoe\Fantasy\Api\Controller;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
 use Flarum\Http\RequestUtil;
+use Flarum\Locale\TranslatorInterface;
 use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -14,13 +15,15 @@ use Psr\Http\Server\RequestHandlerInterface;
 /** Every league on this forum, with its standings. */
 class LeaguesController implements RequestHandlerInterface
 {
+    private const PER_PAGE = 50;
+
     /*
      * 🚨 The connection is injected, not reached for through the DB facade.
      * Flarum boots the container without setting the facade root, so
      * `DB::table(...)` throws — quietly, inside a controller, as a 500 with
      * nothing useful in it.
      */
-    public function __construct(private ConnectionInterface $db)
+    public function __construct(private ConnectionInterface $db, private TranslatorInterface $translator)
     {
     }
 
@@ -32,7 +35,15 @@ class LeaguesController implements RequestHandlerInterface
          * franchises and their members loaded only to be counted, and a season
          * lookup each — so the page cost grew with every league created.
          */
-        $leagues = League::query()->withCount('franchises')->orderByDesc('id')->get();
+        $actor = RequestUtil::getActor($request);
+        $actor->assertCan('viewForum');
+
+        // A page at a time, newest first; the page asks for the next one with `offset`.
+        $offset = max(0, (int) ($request->getQueryParams()['offset'] ?? 0));
+        $leagues = League::query()->withCount('franchises')->orderByDesc('id')
+            ->skip($offset)->take(self::PER_PAGE + 1)->get();
+        $more = $leagues->count() > self::PER_PAGE;
+        $leagues = $leagues->take(self::PER_PAGE);
         $competitions = League::competitionsFor($leagues->pluck('season_id')->all());
         $out = [];
 
@@ -56,40 +67,28 @@ class LeaguesController implements RequestHandlerInterface
          * separately is three round trips and two intermediate states where
          * the button flickers into existence.
          */
-        $actor = RequestUtil::getActor($request);
-
         return new JsonResponse([
             'leagues' => $out,
+            'more' => $more,
             'seasons' => $this->seasons(),
             'canCreate' => $actor->isGuest() ? false : (bool) $actor->can('fantasy.createLeague'),
         ]);
     }
 
-    /**
-     * The seasons a league can be attached to, newest first.
-     *
-     * 🚨 Read straight from Picks' table and guarded, because Fantasy works
-     * without Picks installed — the scoring reads finished games from wherever
-     * they come from. No seasons simply means the form offers none, which is a
-     * league with no schedule rather than a page that will not load.
-     */
+    /** The seasons a league can be attached to, newest first. */
     private function seasons(): array
     {
-        try {
-            $rows = $this->db->table('picks_seasons')
-                ->orderByDesc('id')
-                ->limit(25)
-                ->get(['id', 'name', 'year']);
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $rows = $this->db->table('picks_seasons')
+            ->orderByDesc('id')
+            ->limit(25)
+            ->get(['id', 'name', 'year']);
 
         $out = [];
 
         foreach ($rows as $row) {
             $out[] = [
                 'id' => (int) $row->id,
-                'name' => (string) ($row->name ?: ('Season '.($row->year ?? $row->id))),
+                'name' => (string) ($row->name ?: $this->translator->trans('ernestdefoe-fantasy.api.unnamed_season', ['year' => $row->year ?? $row->id])),
             ];
         }
 

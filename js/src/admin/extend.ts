@@ -31,6 +31,15 @@ export default [
       }),
       'start'
     )
+    // A member's permission: suspended accounts and unconfirmed emails don't hold it.
+    .permission(
+      () => ({
+        icon: 'fas fa-clipboard-list',
+        label: app.translator.trans('ernestdefoe-fantasy.admin.permissions.play'),
+        permission: 'fantasy.play',
+      }),
+      'reply'
+    )
     .setting(() => ({
       setting: 'ernestdefoe-fantasy.nav_label',
       type: 'text',

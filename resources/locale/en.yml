@@ -2,6 +2,7 @@ ernestdefoe-fantasy:
   admin:
     permissions:
       create_league: Start a fantasy league
+      play: Join fantasy leagues, draft and set lineups
 
     settings:
       nav_label: Name of the sidebar link
@@ -18,6 +19,7 @@ ernestdefoe-fantasy:
     intro: Draft teams, start a few of them a week, and play somebody new every week.
     empty: No leagues yet.
     no_league: There is no league at this address.
+    load_more: Load more leagues
 
     franchise_count: "{count, plural, one {# franchise} other {# franchises}}"
 
@@ -61,6 +63,7 @@ ernestdefoe-fantasy:
 
     lineup:
       title: "{franchise}: lineup"
+      log_in: Log in to set your lineup.
       not_yet: Lineups open once the draft is done.
       week: Week
       count: "{count} of {starters} starting"
@@ -105,6 +108,10 @@ ernestdefoe-fantasy:
     league_not_found: There is no league at that address.
     league_started: That league has already started.
     league_full: That league is full.
+    no_such_season: Choose a season for the league.
+    description_too_long: That description is too long.
+    busy: Someone else is changing this league right now. Try again in a moment.
+    unnamed_season: "Season {year}"
     default_franchise: "{name}'s team"
     not_commissioner: Only the league's commissioner can do that.
     too_few_franchises: A draft needs at least two franchises.

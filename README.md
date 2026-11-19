@@ -15,7 +15,9 @@ php flarum migrate
 php flarum cache:clear
 ```
 
-`fantasy:score` runs hourly on Flarum's scheduler.
+`fantasy:score` runs hourly on Flarum's scheduler. It scores the active leagues'
+weeks with a game in the last fourteen days, so a late or corrected final is
+still picked up and older weeks are left as they were scored.
 
 ## How a league runs
 
@@ -74,6 +76,13 @@ pay out reads as a broken rule rather than as an impossible event.
 This only decides what a new league starts from, and it never touches a league
 that already exists.
 
+## Permissions
+
+- **Start a fantasy league** (`fantasy.createLeague`): nobody but admins out of the box.
+- **Join fantasy leagues, draft and set lineups** (`fantasy.play`): members. A
+  suspended account, or one whose email is not confirmed, can watch but not play.
+- Viewing leagues follows **View forum**: a forum closed to guests shows them none.
+
 ## Settings
 
 The admin settings (franchises per league, teams on a roster, teams in a lineup)
@@ -92,10 +101,9 @@ with a NULL score has not been reported on, which is not 0–0.
 same rows and changes nothing — which is what makes it safe on a schedule beside
 a live-score sync that will re-report a game that was already final.
 
-🚨 **One owner per team is a UNIQUE INDEX**, not a rule the application
-remembers. Two people clicking Add on the same free agent in the same second
-both pass a "is it taken?" check; only one insert can win, and the loser is told
-so rather than shown a stack trace.
+🚨 **Joining and drafting run under a league lock.** Two members taking the last
+place, or two owners pressing Draft in the same second, can't both succeed: the
+second is told to try again. One owner per team is also a UNIQUE INDEX.
 
 🚨 **The workings are stored, not just the total.** Points scored, allowed, the
 win, the shutout and the bonus are written beside the points — because a
@@ -105,8 +113,8 @@ unexplainable.
 ## Requires
 
 - Flarum 2
-- [`ernestdefoe/picks`](https://github.com/ernestdefoe/picks) for the fixtures
-  and results
+- [`ernestdefoe/picks`](https://github.com/ernestdefoe/picks) 2.2 or later for
+  the fixtures and results
 
 ## Support
 

@@ -5,49 +5,47 @@ namespace ErnestDefoe\Fantasy\Service;
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
+use Flarum\Locale\TranslatorInterface;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 /** Creating and joining leagues. */
 class Leagues
 {
-    /**
-     * What a league starts from when the form does not say, and what the
-     * admin screen's three numbers actually change.
-     *
-     * 🚨 Read here rather than baked into the form. A default typed into the
-     * JavaScript is a default only for people who use that form — the API, a
-     * seeder and any future importer would all carry their own copy, and the
-     * setting would quietly govern one of them.
-     */
-    private const FALLBACK = ['max_franchises' => 12, 'roster_size' => 8, 'starters' => 4];
-
-    public function __construct(private ?SettingsRepositoryInterface $settings = null)
-    {
+    public function __construct(
+        private SettingsRepositoryInterface $settings,
+        private TranslatorInterface $translator,
+        private LeagueLock $lock,
+    ) {
     }
 
+    /**
+     * Start a league from its name, description and season. The sizes come
+     * from the forum's settings and the scoring from the season's sport.
+     *
+     * @param array{name: string, description?: string, season_id: int} $input
+     */
     public function create(array $input, int $userId): League
     {
-        $name = trim((string) ($input['name'] ?? ''));
-        $roster = min(25, max(1, (int) ($input['roster_size'] ?? $this->configured('roster_size'))));
-        $seasonId = (int) ($input['season_id'] ?? 0);
+        $name = trim($input['name']);
+        $roster = min(25, max(1, $this->configured('roster_size')));
 
         $league = new League();
         $league->fill([
             'name' => Str::limit($name, 189, ''),
-            'slug' => $this->uniqueSlug($name),
-            'description' => trim((string) ($input['description'] ?? '')) ?: null,
-            'season_id' => $seasonId,
+            'description' => trim($input['description'] ?? '') ?: null,
+            'season_id' => (int) $input['season_id'],
             'commissioner_id' => $userId,
             'status' => 'setup',
-            'max_franchises' => min(32, max(2, (int) ($input['max_franchises'] ?? $this->configured('max_franchises')))),
+            'max_franchises' => min(32, max(2, $this->configured('max_franchises'))),
             'roster_size' => $roster,
             /*
              * 🚨 Never more than the roster it is chosen from, or every lineup
              * screen is a form that cannot be completed.
              */
-            'starters' => min($roster, max(1, (int) ($input['starters'] ?? $this->configured('starters')))),
+            'starters' => min($roster, max(1, $this->configured('starters'))),
         ]);
 
         /*
@@ -57,55 +55,69 @@ class Leagues
          * ten, a football team one and a half — so 1.0 per point is a sensible
          * week in one, an absurd 110-point week in another and rounding error
          * in the third.
-         *
-         * Anything the form actually sent still wins; this only decides what a
-         * commissioner starts from.
          */
-        $league->season_id = $seasonId;
         $defaults = SportScoring::defaultsFor($league->competition());
 
         foreach (League::SCORING as $column) {
-            $league->{$column} = array_key_exists($column, $input)
-                ? (float) $input[$column]
-                : ($defaults[$column] ?? 0.0);
+            $league->{$column} = $defaults[$column] ?? 0.0;
         }
 
-        $league->save();
+        $this->saveWithUniqueSlug($league, $name);
 
         $this->join($league, $userId, '');
 
         return $league;
     }
 
-    public function join(League $league, int $userId, string $name): Franchise
+    /**
+     * Take a franchise in a league.
+     *
+     * 🚨 The "is it full / has it started" checks and the insert run under the
+     * league lock, so two members claiming the last open place at the same
+     * moment cannot both get it.
+     *
+     * @return array{ok: true, franchise: Franchise}|array{ok: false, problem: string}
+     */
+    public function join(League $league, int $userId, string $name): array
     {
-        $existing = Franchise::query()
-            ->where('league_id', $league->id)
-            ->where('user_id', $userId)
-            ->first();
+        return $this->lock->run($league, function (League $league) use ($userId, $name) {
+            $existing = Franchise::query()
+                ->where('league_id', $league->id)
+                ->where('user_id', $userId)
+                ->first();
 
-        if ($existing !== null) {
-            return $existing;
-        }
+            if ($existing !== null) {
+                return ['ok' => true, 'franchise' => $existing];
+            }
 
-        return Franchise::query()->create([
-            'league_id' => $league->id,
-            'user_id' => $userId,
-            'name' => Str::limit(trim($name) ?: $this->defaultName($userId), 119, ''),
-        ]);
+            if ($league->status !== 'setup') {
+                return ['ok' => false, 'problem' => 'league_started'];
+            }
+
+            if (Franchise::query()->where('league_id', $league->id)->count() >= (int) $league->max_franchises) {
+                return ['ok' => false, 'problem' => 'league_full'];
+            }
+
+            $franchise = Franchise::query()->create([
+                'league_id' => $league->id,
+                'user_id' => $userId,
+                'name' => Str::limit(trim($name) ?: $this->defaultName($userId), 119, ''),
+            ]);
+
+            return ['ok' => true, 'franchise' => $franchise];
+        });
     }
 
     /**
-     * One configured default, clamped by the caller the same as any other
-     * input. An operator who types 0 into the admin screen gets the same
-     * treatment as an API client who posts 0, which is the point of clamping
-     * where the value is USED rather than where it arrives.
+     * One configured default (registered once, in extend.php), clamped by the
+     * caller the same as any other input. An operator who types 0 into the
+     * admin screen gets the same treatment as an API client who posts 0, which
+     * is the point of clamping where the value is USED rather than where it
+     * arrives.
      */
     private function configured(string $key): int
     {
-        $value = $this->settings?->get('ernestdefoe-fantasy.default_'.$key);
-
-        return $value === null || $value === '' ? self::FALLBACK[$key] : (int) $value;
+        return (int) $this->settings->get('ernestdefoe-fantasy.default_'.$key);
     }
 
     /** "Mara Ellison's team" for a member who didn't name theirs. */
@@ -113,19 +125,38 @@ class Leagues
     {
         $user = User::query()->find($userId);
 
-        return (string) resolve('translator')->trans('ernestdefoe-fantasy.api.default_franchise', ['name' => $user ? $user->display_name : '']);
+        return (string) $this->translator->trans('ernestdefoe-fantasy.api.default_franchise', ['name' => $user ? $user->display_name : '']);
     }
 
-    private function uniqueSlug(string $name): string
+    /**
+     * Save under the first free slug for the name. Two leagues created with
+     * the same name at the same moment can both find a slug free; the unique
+     * index refuses the second, which then tries the next one.
+     */
+    private function saveWithUniqueSlug(League $league, string $name): void
     {
-        $base = Str::slug($name) ?: 'league';
-        $slug = $base;
-        $n = 2;
+        // Cut to length BEFORE numbering, so "-2" is never cut off again.
+        $base = Str::limit(Str::slug($name) ?: 'league', 180, '');
 
-        while (League::query()->where('slug', $slug)->exists()) {
-            $slug = $base.'-'.$n++;
+        for ($attempt = 0; ; $attempt++) {
+            $slug = $base;
+            $n = 2;
+
+            while (League::query()->where('slug', $slug)->exists()) {
+                $slug = $base.'-'.$n++;
+            }
+
+            $league->slug = $slug;
+
+            try {
+                $league->save();
+
+                return;
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt >= 2) {
+                    throw $e;
+                }
+            }
         }
-
-        return Str::limit($slug, 189, '');
     }
 }

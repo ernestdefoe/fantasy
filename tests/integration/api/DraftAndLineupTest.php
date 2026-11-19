@@ -244,4 +244,14 @@ class DraftAndLineupTest extends TestCase
 
         $this->assertSame($before, $board());
     }
+
+    #[Test]
+    public function the_draft_board_search_ignores_case()
+    {
+        $this->joinAndStart();
+
+        $board = $this->body($this->call('GET', '/api/fantasy/draft', 2, null, ['slug' => 'saturday-gang', 'q' => 'CELT']));
+
+        $this->assertSame(['Celtics'], array_column($board['available'], 'name'));
+    }
 }

@@ -22,7 +22,7 @@ class StartDraftController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $actor->assertRegistered();
+        $this->assertPlayer($actor);
 
         $league = $this->league($request);
         if ($league === null) {

@@ -4,8 +4,6 @@ import Button from 'flarum/common/components/Button';
 import Stream from 'flarum/common/utils/Stream';
 import withAttr from 'flarum/common/utils/withAttr';
 
-declare const m: any;
-
 interface CreateLeagueModalAttrs extends IFormModalAttrs {
   seasons?: { id: number; name: string }[];
   defaults?: { maxFranchises?: number; rosterSize?: number; starters?: number };
@@ -78,9 +76,9 @@ export default class CreateLeagueModal extends FormModal<CreateLeagueModalAttrs>
 
         <p className="helpText">
           {app.translator.trans('ernestdefoe-fantasy.forum.league_defaults', {
-            franchises: d.maxFranchises ?? 12,
-            roster: d.rosterSize ?? 8,
-            starters: d.starters ?? 4,
+            franchises: d.maxFranchises,
+            roster: d.rosterSize,
+            starters: d.starters,
           })}
         </p>
 

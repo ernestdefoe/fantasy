@@ -9,8 +9,6 @@ import extractText from 'flarum/common/utils/extractText';
 import crestUrl from '../crest';
 import type { DraftData, DraftClock, DraftFranchise, DraftPick, AvailableTeam } from '../types';
 
-declare const m: any;
-
 const t = (key: string, params: Record<string, unknown> = {}) => app.translator.trans('ernestdefoe-fantasy.forum.draft.' + key, params);
 
 /**
@@ -86,63 +84,10 @@ export default class FantasyDraftPage extends Page {
 
           {league.status === 'drafting' ? (
             <div className="FantasyDraft">
-              <section className="FantasyDraft-board">
-                <div className="FantasyDraft-search">
-                  <input
-                    className="FormControl"
-                    type="search"
-                    value={this.search}
-                    placeholder={extractText(t('search'))}
-                    aria-label={extractText(t('search'))}
-                    oninput={(e: InputEvent) => {
-                      this.search = (e.target as HTMLInputElement).value;
-                      clearTimeout(this.searchTimer);
-                      this.searchTimer = setTimeout(() => this.load(), 250);
-                    }}
-                  />
-                </div>
-                {available.length ? (
-                  <ul className="FantasyDraft-teams">
-                    {available.map((team) => (
-                      <li className="FantasyDraft-team" key={team.id}>
-                        {this.crest(team.logo_path || '', team.name, 32)}
-                        <span className="FantasyDraft-teamName">
-                          <b>{team.name}</b>
-                          {team.conference ? <small>{team.conference}</small> : null}
-                        </span>
-                        {viewer.canPick ? (
-                          <Button
-                            className="Button Button--primary Button--small"
-                            loading={this.picking === team.id}
-                            disabled={this.picking !== null}
-                            onclick={() => this.pick(team)}
-                          >
-                            {t('pick')}
-                          </Button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="FantasyDraft-empty">{t(this.search ? 'no_match' : 'none_left')}</p>
-                )}
-              </section>
+              {this.board(available, viewer)}
 
               <aside className="FantasyDraft-side">
-                <h2>{t('order')}</h2>
-                <ol className="FantasyDraft-order">
-                  {order.map((f) => (
-                    <li className={clock && clock.franchise === f.id ? 'is-onClock' : ''} key={f.id}>
-                      <span className="FantasyDraft-orderName">
-                        <b>{f.name}</b>
-                        <small>{f.member}</small>
-                      </span>
-                      <span className="FantasyDraft-count">
-                        {f.picks}/{league.rosterSize}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                {this.draftOrder(order, clock, league)}
                 {this.picks(history, byId, order.length)}
               </aside>
             </div>
@@ -152,6 +97,71 @@ export default class FantasyDraftPage extends Page {
         </div>
       </div>
     );
+  }
+
+  board(available: DraftData['available'], viewer: DraftData['viewer']) {
+    return (
+      <section className="FantasyDraft-board">
+        <div className="FantasyDraft-search">
+          <input
+            className="FormControl"
+            type="search"
+            value={this.search}
+            placeholder={extractText(t('search'))}
+            aria-label={extractText(t('search'))}
+            oninput={(e: InputEvent) => {
+              this.search = (e.target as HTMLInputElement).value;
+              clearTimeout(this.searchTimer);
+              this.searchTimer = setTimeout(() => this.load(), 250);
+            }}
+          />
+        </div>
+        {available.length ? (
+          <ul className="FantasyDraft-teams">
+            {available.map((team) => (
+              <li className="FantasyDraft-team" key={team.id}>
+                {this.crest(team.logo_path || '', team.name, 32)}
+                <span className="FantasyDraft-teamName">
+                  <b>{team.name}</b>
+                  {team.conference ? <small>{team.conference}</small> : null}
+                </span>
+                {viewer.canPick ? (
+                  <Button
+                    className="Button Button--primary Button--small"
+                    loading={this.picking === team.id}
+                    disabled={this.picking !== null}
+                    onclick={() => this.pick(team)}
+                  >
+                    {t('pick')}
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="FantasyDraft-empty">{t(this.search ? 'no_match' : 'none_left')}</p>
+        )}
+      </section>
+    );
+  }
+
+  draftOrder(order: DraftFranchise[], clock: DraftClock | null, league: DraftData['league']) {
+    return [
+      <h2>{t('order')}</h2>,
+      <ol className="FantasyDraft-order">
+        {order.map((f) => (
+          <li className={clock && clock.franchise === f.id ? 'is-onClock' : ''} key={f.id}>
+            <span className="FantasyDraft-orderName">
+              <b>{f.name}</b>
+              <small>{f.member}</small>
+            </span>
+            <span className="FantasyDraft-count">
+              {f.picks}/{league.rosterSize}
+            </span>
+          </li>
+        ))}
+      </ol>,
+    ];
   }
 
   banner(league: DraftData['league'], clock: DraftClock | null, byId: Record<number, DraftFranchise>, viewer: DraftData['viewer']) {

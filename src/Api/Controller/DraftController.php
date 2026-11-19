@@ -28,6 +28,8 @@ class DraftController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
+        $actor->assertCan('viewForum');
+
         $league = $this->league($request);
         if ($league === null) {
             return $this->problem('league_not_found', 404);

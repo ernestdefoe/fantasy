@@ -6,9 +6,13 @@ use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Scoring;
 use Illuminate\Console\Command;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Carbon;
 
 /**
- * Score every open week of every active league.
+ * Score the recent weeks of every active league: weeks with a game in the
+ * last fourteen days (the window a late or corrected final can still arrive
+ * in). Older weeks are already scored and stay as they are; a league that is
+ * still drafting has no lineups to score.
  *
  * 🚨 Idempotent by construction — the scoring pass upserts — so running it
  * twice writes the same rows and changes nothing. That is what makes it safe to
@@ -17,13 +21,15 @@ use Illuminate\Database\ConnectionInterface;
  */
 class ScoreCommand extends Command
 {
+    private const WINDOW_DAYS = 14;
+
     protected $signature = 'fantasy:score';
 
     protected $description = 'Score finished games for every active fantasy league.';
 
     public function handle(Scoring $scoring, ConnectionInterface $db): int
     {
-        $leagues = League::query()->whereIn('status', ['active', 'drafting'])->get();
+        $leagues = League::query()->where('status', 'active')->get();
 
         if ($leagues->isEmpty()) {
             $this->line('No active leagues.');
@@ -31,15 +37,21 @@ class ScoreCommand extends Command
             return self::SUCCESS;
         }
 
+        // Every league's recent weeks in one query, grouped by season.
+        $weeks = $db->table('picks_weeks as w')
+            ->whereIn('w.season_id', $leagues->pluck('season_id')->unique()->all())
+            ->whereExists(fn ($q) => $q->select('e.id')->from('picks_events as e')
+                ->whereColumn('e.week_id', 'w.id')
+                ->whereBetween('e.match_date', [Carbon::now()->subDays(self::WINDOW_DAYS), Carbon::now()]))
+            ->orderBy('w.id')
+            ->get(['w.id', 'w.season_id'])
+            ->groupBy('season_id');
+
         $total = 0;
 
         foreach ($leagues as $league) {
-            $weeks = $db->table('picks_weeks')
-                ->where('season_id', $league->season_id)
-                ->pluck('id');
-
-            foreach ($weeks as $weekId) {
-                $total += $scoring->week($league, (int) $weekId)['scored'];
+            foreach ($weeks[$league->season_id] ?? [] as $week) {
+                $total += $scoring->week($league, (int) $week->id)['scored'];
             }
         }
 

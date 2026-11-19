@@ -13,12 +13,12 @@ return [
     'up' => function (Builder $schema) {
         if (! $schema->hasColumn('fantasy_franchises', 'draft_position')) {
             $schema->table('fantasy_franchises', function (Blueprint $table) {
-                $table->unsignedSmallInteger('draft_position')->nullable()->after('name');
+                $table->unsignedSmallInteger('draft_position')->nullable();
             });
         }
         if (! $schema->hasColumn('fantasy_leagues', 'activated_at')) {
             $schema->table('fantasy_leagues', function (Blueprint $table) {
-                $table->dateTime('activated_at')->nullable()->after('status');
+                $table->dateTime('activated_at')->nullable();
             });
         }
     },

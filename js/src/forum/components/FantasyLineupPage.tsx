@@ -10,8 +10,6 @@ import extractText from 'flarum/common/utils/extractText';
 import crestUrl from '../crest';
 import type { LineupData, LineupGame, LineupTeam } from '../types';
 
-declare const m: any;
-
 const t = (key: string, params: Record<string, unknown> = {}) => app.translator.trans('ernestdefoe-fantasy.forum.lineup.' + key, params);
 
 /**
@@ -28,6 +26,13 @@ export default class FantasyLineupPage extends Page {
 
   oninit(vnode: Mithril.Vnode<IPageAttrs, this>) {
     super.oninit(vnode);
+
+    // A lineup is the visitor's own: a guest is asked to log in instead.
+    if (!app.session.user) {
+      this.loading = false;
+      return;
+    }
+
     this.load();
   }
 
@@ -55,6 +60,21 @@ export default class FantasyLineupPage extends Page {
 
   view() {
     if (this.loading && !this.data) return <LoadingIndicator />;
+    if (!app.session.user)
+      return (
+        <div className="FantasyPage">
+          <div className="container">
+            <p className="FantasyPage-intro">{t('log_in')}</p>
+            <Button
+              className="Button Button--primary"
+              icon="fas fa-sign-in-alt"
+              onclick={() => app.modal.show(() => import('flarum/forum/components/LogInModal'))}
+            >
+              {app.translator.trans('core.forum.header.log_in_link')}
+            </Button>
+          </div>
+        </div>
+      );
     if (!this.data)
       return (
         <div className="container">
@@ -62,7 +82,7 @@ export default class FantasyLineupPage extends Page {
         </div>
       );
 
-    const { league, franchise, weeks, week, teams } = this.data;
+    const { league, franchise } = this.data;
     const count = this.chosen.size;
     const changed = count !== this.saved.size || [...this.chosen].some((id) => !this.saved.has(id));
 
@@ -74,45 +94,44 @@ export default class FantasyLineupPage extends Page {
           </Link>
           <h1>{t('title', { franchise: franchise.name })}</h1>
 
-          {league.status !== 'active' ? (
-            <p className="FantasyPage-intro">{t('not_yet')}</p>
-          ) : (
-            <form onsubmit={(e: Event) => this.save(e)}>
-              <div className="FantasyLineup-head">
-                <select
-                  className="FormControl FantasyLineup-week"
-                  value={String(week)}
-                  aria-label={extractText(t('week'))}
-                  onchange={(e: Event) => this.load(Number((e.target as HTMLSelectElement).value))}
-                >
-                  {weeks.map((w) => (
-                    <option value={String(w.id)}>{w.name}</option>
-                  ))}
-                </select>
-                <span className={'FantasyLineup-count' + (count > league.starters ? ' is-over' : '')}>
-                  {t('count', { count, starters: league.starters })}
-                </span>
-              </div>
-
-              {teams.length ? (
-                <ul className={'FantasyLineup' + (this.loading ? ' is-loading' : '')}>{teams.map((team) => this.row(team))}</ul>
-              ) : (
-                <p className="FantasyPage-intro">{t('empty')}</p>
-              )}
-
-              <p className="helpText">{t('help', { starters: league.starters })}</p>
-              <Button
-                className="Button Button--primary"
-                type="submit"
-                loading={this.saving}
-                disabled={this.saving || !changed || count > league.starters}
-              >
-                {t('save')}
-              </Button>
-            </form>
-          )}
+          {league.status !== 'active' ? <p className="FantasyPage-intro">{t('not_yet')}</p> : this.form(this.data, count, changed)}
         </div>
       </div>
+    );
+  }
+
+  form(data: LineupData, count: number, changed: boolean) {
+    const { league, weeks, week, teams } = data;
+
+    return (
+      <form onsubmit={(e: Event) => this.save(e)}>
+        <div className="FantasyLineup-head">
+          <select
+            className="FormControl FantasyLineup-week"
+            value={String(week)}
+            aria-label={extractText(t('week'))}
+            onchange={(e: Event) => this.load(Number((e.target as HTMLSelectElement).value))}
+          >
+            {weeks.map((w) => (
+              <option value={String(w.id)}>{w.name}</option>
+            ))}
+          </select>
+          <span className={'FantasyLineup-count' + (count > league.starters ? ' is-over' : '')}>
+            {t('count', { count, starters: league.starters })}
+          </span>
+        </div>
+
+        {teams.length ? (
+          <ul className={'FantasyLineup' + (this.loading ? ' is-loading' : '')}>{teams.map((team) => this.row(team))}</ul>
+        ) : (
+          <p className="FantasyPage-intro">{t('empty')}</p>
+        )}
+
+        <p className="helpText">{t('help', { starters: league.starters })}</p>
+        <Button className="Button Button--primary" type="submit" loading={this.saving} disabled={this.saving || !changed || count > league.starters}>
+          {t('save')}
+        </Button>
+      </form>
     );
   }
 

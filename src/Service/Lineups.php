@@ -94,21 +94,10 @@ class Lineups
             return $rows->where('started', true)->pluck('team_id')->map(fn ($id) => (int) $id)->values()->all();
         }
 
-        $order = array_column($this->weeks($league), 'id');
-        $before = array_slice($order, 0, max(0, (int) array_search($weekId, $order, true)));
-        $last = $before ? $this->db->table('fantasy_lineups')
-            ->where('league_id', $league->id)->where('franchise_id', $franchiseId)->whereIn('week_id', $before)
-            ->where('started', true)->get(['week_id', 'team_id'])->groupBy('week_id') : collect();
+        $before = $this->weeksBefore($league, $weekId);
+        $earlier = $this->startedIn($league, [$franchiseId], $before);
 
-        $roster = $this->roster($league, $franchiseId);
-        foreach (array_reverse($before) as $week) {
-            if (isset($last[$week])) {
-                // Only teams still on the roster carry over.
-                return array_values(array_intersect($last[$week]->pluck('team_id')->map(fn ($id) => (int) $id)->all(), $roster));
-            }
-        }
-
-        return array_slice($roster, 0, (int) $league->starters);
+        return $this->carried($league, $this->roster($league, $franchiseId), $earlier[$franchiseId] ?? [], $before);
     }
 
     /**
@@ -172,24 +161,117 @@ class Lineups
         $set = $this->db->table('fantasy_lineups')->where('league_id', $league->id)->where('week_id', $weekId)
             ->distinct()->pluck('franchise_id')->map(fn ($id) => (int) $id)->all();
 
-        foreach (Franchise::query()->where('league_id', $league->id)->whereNotIn('id', $set ?: [0])->pluck('id') as $id) {
-            $this->write($league, (int) $id, $weekId, $this->roster($league, (int) $id), $this->starters($league, (int) $id, $weekId));
+        $missing = Franchise::query()->where('league_id', $league->id)->whereNotIn('id', $set ?: [0])
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        if ($missing === []) {
+            return;
         }
+
+        /*
+         * 🚨 Rosters and earlier lineups for every franchise that needs one are
+         * read in one query each, not one per franchise: this runs for every
+         * week of every league on each hourly scoring pass.
+         */
+        $rosters = $this->db->table('fantasy_rosters')
+            ->where('league_id', $league->id)->whereIn('franchise_id', $missing)
+            ->orderBy('id')->get(['franchise_id', 'team_id'])
+            ->groupBy('franchise_id');
+        $before = $this->weeksBefore($league, $weekId);
+        $earlier = $this->startedIn($league, $missing, $before);
+        $now = Carbon::now();
+        $rows = [];
+
+        foreach ($missing as $id) {
+            $roster = collect($rosters[$id] ?? [])->pluck('team_id')->map(fn ($t) => (int) $t)->all();
+            $rows = [...$rows, ...$this->rows($league, $id, $weekId, $roster, $this->carried($league, $roster, $earlier[$id] ?? [], $before), $now)];
+        }
+
+        // Insert-or-ignore, not upsert: an owner who saves this week's lineup
+        // while this pass runs keeps what they saved.
+        if ($rows !== []) {
+            $this->db->table('fantasy_lineups')->insertOrIgnore($rows);
+        }
+    }
+
+    /** @return list<int> the ids of the season's weeks before this one, in order */
+    private function weeksBefore(League $league, int $weekId): array
+    {
+        $order = array_column($this->weeks($league), 'id');
+
+        return array_slice($order, 0, max(0, (int) array_search($weekId, $order, true)));
+    }
+
+    /**
+     * The teams each franchise started in each of the given weeks.
+     *
+     * @param list<int> $franchiseIds
+     * @param list<int> $weekIds
+     * @return array<int, array<int, list<int>>> franchise => week => team ids
+     */
+    private function startedIn(League $league, array $franchiseIds, array $weekIds): array
+    {
+        if ($franchiseIds === [] || $weekIds === []) {
+            return [];
+        }
+
+        $out = [];
+        $rows = $this->db->table('fantasy_lineups')
+            ->where('league_id', $league->id)->whereIn('franchise_id', $franchiseIds)->whereIn('week_id', $weekIds)
+            ->where('started', true)->get(['franchise_id', 'week_id', 'team_id']);
+
+        foreach ($rows as $row) {
+            $out[(int) $row->franchise_id][(int) $row->week_id][] = (int) $row->team_id;
+        }
+
+        return $out;
+    }
+
+    /**
+     * A week with no saved lineup plays the last earlier week's starters that
+     * are still on the roster, or else the first teams drafted.
+     *
+     * @param list<int> $roster
+     * @param array<int, list<int>> $earlier week => team ids started
+     * @param list<int> $before
+     * @return list<int>
+     */
+    private function carried(League $league, array $roster, array $earlier, array $before): array
+    {
+        foreach (array_reverse($before) as $week) {
+            if (isset($earlier[$week])) {
+                // Only teams still on the roster carry over.
+                return array_values(array_intersect($earlier[$week], $roster));
+            }
+        }
+
+        return array_slice($roster, 0, (int) $league->starters);
     }
 
     /** One row per roster team for the week, started or benched. */
     private function write(League $league, int $franchiseId, int $weekId, array $roster, array $starters): void
     {
-        if ($roster === []) {
+        $this->upsert($this->rows($league, $franchiseId, $weekId, $roster, $starters, Carbon::now()));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function rows(League $league, int $franchiseId, int $weekId, array $roster, array $starters, Carbon $now): array
+    {
+        return array_map(fn ($team) => [
+            'league_id' => $league->id, 'franchise_id' => $franchiseId, 'week_id' => $weekId, 'team_id' => $team,
+            'started' => in_array($team, $starters, true), 'created_at' => $now, 'updated_at' => $now,
+        ], $roster);
+    }
+
+    /** @param list<array<string, mixed>> $rows */
+    private function upsert(array $rows): void
+    {
+        if ($rows === []) {
             return;
         }
 
-        $now = Carbon::now();
         $this->db->table('fantasy_lineups')->upsert(
-            array_map(fn ($team) => [
-                'league_id' => $league->id, 'franchise_id' => $franchiseId, 'week_id' => $weekId, 'team_id' => $team,
-                'started' => in_array($team, $starters, true), 'created_at' => $now, 'updated_at' => $now,
-            ], $roster),
+            $rows,
             ['league_id', 'franchise_id', 'week_id', 'team_id'],
             ['started', 'updated_at']
         );

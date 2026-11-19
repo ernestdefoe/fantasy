@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 /** Which teams a league may draft, whose turn it is, and taking one. */
 class Draft
 {
-    public function __construct(protected ConnectionInterface $db)
+    public function __construct(protected ConnectionInterface $db, private LeagueLock $lock)
     {
     }
 
@@ -34,13 +34,13 @@ class Draft
     {
         $query = $this->db->table('picks_teams as t')
             ->whereNotExists(function ($q) use ($league) {
-                $q->selectRaw('1')
+                $q->select('r.id')
                     ->from('fantasy_rosters as r')
                     ->where('r.league_id', $league->id)
                     ->whereColumn('r.team_id', 't.id');
             })
             ->whereExists(function ($q) use ($league) {
-                $q->selectRaw('1')
+                $q->select('e.id')
                     ->from('picks_events as e')
                     ->join('picks_weeks as w', 'w.id', '=', 'e.week_id')
                     ->where('w.season_id', $league->season_id)
@@ -51,29 +51,36 @@ class Draft
             });
 
         $search = trim($search);
+        $limit = max(1, min(1000, $limit));
 
+        $teams = $query->orderBy('t.name')
+            ->limit($search === '' ? $limit : 1000)
+            ->get(['t.id', 't.name', 't.conference', 't.abbreviation', 't.logo_path']);
+
+        /*
+         * 🚨 Searched here, not with LIKE '%…%'. The board is already scoped to
+         * one season's teams (a few hundred rows at most), and LIKE is
+         * case-sensitive on PostgreSQL, so "state" found nothing there.
+         */
         if ($search !== '') {
-            $like = '%'.$search.'%';
-            $query->where(function ($q) use ($like) {
-                $q->where('t.name', 'like', $like)
-                    ->orWhere('t.conference', 'like', $like)
-                    ->orWhere('t.abbreviation', 'like', $like);
-            });
+            $teams = $teams->filter(fn ($t) => mb_stripos((string) $t->name, $search) !== false
+                || mb_stripos((string) $t->conference, $search) !== false
+                || mb_stripos((string) $t->abbreviation, $search) !== false);
         }
 
-        return $query->orderBy('t.name')
-            ->limit(max(1, min(1000, $limit)))
-            ->get(['t.id', 't.name', 't.conference', 't.logo_path'])
-            ->map(fn ($row) => (array) $row)
+        return $teams->take($limit)
+            ->map(fn ($row) => ['id' => $row->id, 'name' => $row->name, 'conference' => $row->conference, 'logo_path' => $row->logo_path])
+            ->values()
             ->all();
     }
 
     /**
-     * Take a team.
+     * Take a team. Only called by pickInTurn(), under the league lock, which
+     * has already checked that nobody in the league holds it.
      *
      * @return array{ok: bool, problem?: string}
      */
-    public function pick(League $league, int $franchiseId, int $teamId): array
+    private function pick(League $league, int $franchiseId, int $teamId): array
     {
         if (! $this->playsIn($league, $teamId)) {
             return ['ok' => false, 'problem' => 'no_such_team'];
@@ -88,23 +95,12 @@ class Draft
             return ['ok' => false, 'problem' => 'roster_full'];
         }
 
-        try {
-            RosterSpot::query()->create([
-                'league_id' => $league->id,
-                'franchise_id' => $franchiseId,
-                'team_id' => $teamId,
-                'acquired_via' => 'draft',
-            ]);
-        } catch (\Throwable) {
-            /*
-             * 🚨 The UNIQUE index is the arbiter, not a prior read. Two people
-             * clicking the same free agent in the same second both pass a
-             * "is it taken?" check and only one insert can win — which is the
-             * behaviour wanted, and the loser is told so rather than shown a
-             * stack trace.
-             */
-            return ['ok' => false, 'problem' => 'already_taken'];
-        }
+        RosterSpot::query()->create([
+            'league_id' => $league->id,
+            'franchise_id' => $franchiseId,
+            'team_id' => $teamId,
+            'acquired_via' => 'draft',
+        ]);
 
         return ['ok' => true];
     }
@@ -116,31 +112,32 @@ class Draft
      */
     public function start(League $league): array
     {
-        if ($league->status !== 'setup') {
-            return ['ok' => false, 'problem' => 'league_started'];
-        }
+        return $this->lock->run($league, function (League $league) {
+            if ($league->status !== 'setup') {
+                return ['ok' => false, 'problem' => 'league_started'];
+            }
 
-        $franchises = Franchise::query()->where('league_id', $league->id)->pluck('id')->shuffle()->values();
+            $franchises = Franchise::query()->where('league_id', $league->id)->pluck('id')->shuffle()->values();
 
-        if ($franchises->count() < 2) {
-            return ['ok' => false, 'problem' => 'too_few_franchises'];
-        }
+            if ($franchises->count() < 2) {
+                return ['ok' => false, 'problem' => 'too_few_franchises'];
+            }
 
-        $this->db->transaction(function () use ($league, $franchises) {
             foreach ($franchises as $i => $id) {
                 Franchise::query()->whereKey($id)->update(['draft_position' => $i + 1]);
             }
             $league->status = 'drafting';
             $league->save();
-        });
 
-        return ['ok' => true];
+            return ['ok' => true];
+        });
     }
 
     /** Franchise ids in draft order. */
     public function order(League $league): array
     {
         return Franchise::query()->where('league_id', $league->id)
+            // Raw because the builder has no portable "nulls last"; IS NULL works on all three databases.
             ->orderByRaw('draft_position is null')->orderBy('draft_position')->orderBy('id')
             ->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
@@ -199,17 +196,15 @@ class Draft
      * may, or the commissioner on their behalf, so a draft never stalls on
      * someone who wandered off.
      *
-     * 🚨 Under a lock on the league row: two owners pressing "Draft" in the
-     * same second would otherwise both read the same pick count, and one
+     * 🚨 Under the league lock (LeagueLock): two owners pressing "Draft" in
+     * the same second would otherwise both read the same pick count, and one
      * franchise would get two teams for one turn.
      *
      * @return array{ok: bool, problem?: string, finished?: bool}
      */
     public function pickInTurn(League $league, int $actorId, bool $isManager, int $teamId): array
     {
-        return $this->db->transaction(function () use ($league, $actorId, $isManager, $teamId) {
-            $league = League::query()->whereKey($league->id)->lockForUpdate()->firstOrFail();
-
+        return $this->lock->run($league, function (League $league) use ($actorId, $isManager, $teamId) {
             if ($league->status !== 'drafting') {
                 return ['ok' => false, 'problem' => 'not_drafting'];
             }
@@ -226,7 +221,7 @@ class Draft
 
             // Asked first rather than left to the unique index: inside a transaction a
             // failed insert aborts the whole transaction on PostgreSQL. The league lock
-            // makes the check reliable, since every pick in this league waits on it.
+            // makes the check reliable, since no other pick in this league runs meanwhile.
             if (RosterSpot::query()->where('league_id', $league->id)->where('team_id', $teamId)->exists()) {
                 return ['ok' => false, 'problem' => 'already_taken'];
             }
