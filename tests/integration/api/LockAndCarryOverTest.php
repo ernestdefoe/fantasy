@@ -36,7 +36,7 @@ class LockAndCarryOverTest extends TestCase
         $this->assertTrue($lock->get());
 
         try {
-            $response = $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 2, ['name' => 'Second']);
+            $response = $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 2, ['name' => 'Second']);
         } finally {
             $lock->release();
         }
@@ -45,8 +45,8 @@ class LockAndCarryOverTest extends TestCase
         $this->assertSame(1, $this->database()->table('fantasy_franchises')->where('league_id', 1)->count());
 
         // Once the other change is done, the same request goes through.
-        $this->assertSame(200, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 2, ['name' => 'Second'])->getStatusCode());
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 3, ['name' => 'Third'])->getStatusCode(), 'Two of two places taken');
+        $this->assertSame(200, $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 2, ['name' => 'Second'])->getStatusCode());
+        $this->assertSame(422, $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 3, ['name' => 'Third'])->getStatusCode(), 'Two of two places taken');
     }
 
     #[Test]

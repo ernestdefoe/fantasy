@@ -93,7 +93,6 @@ ernestdefoe-fantasy:
       setup: Taking members
       drafting: Drafting
       active: Playing
-      complete: Finished
 
     rule:
       points_per_point: For each point scored
@@ -103,15 +102,9 @@ ernestdefoe-fantasy:
       points_per_margin: For each point of the winning margin
 
   api:
-    name_required: A league needs a name.
-    name_too_long: That name is too long.
-    league_not_found: There is no league at that address.
     league_started: That league has already started.
     league_full: That league is full.
-    no_such_season: Choose a season for the league.
-    description_too_long: That description is too long.
     busy: Someone else is changing this league right now. Try again in a moment.
-    unnamed_season: "Season {year}"
     default_franchise: "{name}'s team"
     not_commissioner: Only the league's commissioner can do that.
     too_few_franchises: A draft needs at least two franchises.

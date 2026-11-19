@@ -52,7 +52,7 @@ export default class JoinLeagueModal extends FormModal<JoinLeagueModalAttrs> {
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.attrs.slug ?? '')}/join`,
+        url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(this.attrs.slug ?? '')}/join`,
         body: { name: this.name().trim() },
       })
       .then(() => {

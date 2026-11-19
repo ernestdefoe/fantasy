@@ -1,22 +1,21 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
+use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Lineups;
-use Flarum\Http\RequestUtil;
+use Flarum\Api\Context;
 use Flarum\Locale\TranslatorInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Carbon;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Your lineup for one week: every team on your roster with its game, whether
  * it has locked, and who starts. Without a week, the next one still to play.
  */
-class LineupController implements RequestHandlerInterface
+class LineupAction
 {
     use LeagueRequest;
 
@@ -24,15 +23,13 @@ class LineupController implements RequestHandlerInterface
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(Context $context): ResponseInterface
     {
-        $actor = RequestUtil::getActor($request);
+        $actor = $context->getActor();
         $actor->assertRegistered();
 
-        $league = $this->league($request);
-        if ($league === null) {
-            return $this->problem('league_not_found', 404);
-        }
+        /** @var League $league */
+        $league = $context->model;
         $franchise = $this->franchiseOf($league, (int) $actor->id);
         if ($franchise === null) {
             return $this->problem('not_in_league', 403);
@@ -40,7 +37,7 @@ class LineupController implements RequestHandlerInterface
 
         $weeks = $this->lineups->weeks($league);
         $ids = array_column($weeks, 'id');
-        $week = (int) ($request->getQueryParams()['week'] ?? 0);
+        $week = (int) ($context->request->getQueryParams()['filter']['week'] ?? 0);
         if (! in_array($week, $ids, true)) {
             // The first week with a game still to kick off; the last one once the season is over.
             $next = $this->db->table('picks_events')->whereIn('week_id', $ids ?: [0])->where('status', 'scheduled')

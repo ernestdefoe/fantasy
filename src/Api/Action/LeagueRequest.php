@@ -1,23 +1,15 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
-use Psr\Http\Message\ServerRequestInterface;
 
-/** The league a request names, and the actor's franchise in it. Needs $this->translator. */
+/** Shared by the league actions: who may play, the actor's franchise, and a translated error. Needs $this->translator. */
 trait LeagueRequest
 {
-    protected function league(ServerRequestInterface $request): ?League
-    {
-        $slug = (string) ($request->getQueryParams()['slug'] ?? '');
-
-        return $slug === '' ? null : League::query()->where('slug', $slug)->first();
-    }
-
     /** Joining, drafting and lineups: a member who holds `fantasy.play` (not suspended, email confirmed). */
     protected function assertPlayer(User $actor): void
     {

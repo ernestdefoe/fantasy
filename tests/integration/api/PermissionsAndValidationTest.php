@@ -29,10 +29,10 @@ class PermissionsAndValidationTest extends TestCase
         $this->database()->table('group_permission')->where('group_id', Group::GUEST_ID)->where('permission', 'viewForum')->delete();
         $this->database()->table('group_permission')->insert(['group_id' => Group::MEMBER_ID, 'permission' => 'viewForum']);
 
-        $this->assertSame(403, $this->call('GET', '/api/fantasy/leagues')->getStatusCode());
-        $this->assertSame(403, $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'hoops'])->getStatusCode());
-        $this->assertSame(403, $this->call('GET', '/api/fantasy/draft', null, null, ['slug' => 'hoops'])->getStatusCode());
-        $this->assertSame(200, $this->call('GET', '/api/fantasy/leagues', 2)->getStatusCode(), 'Members still see them');
+        $this->assertContains($this->call('GET', '/api/fantasy-leagues')->getStatusCode(), [401, 403]);
+        $this->assertContains($this->call('GET', '/api/fantasy-leagues/hoops')->getStatusCode(), [401, 403]);
+        $this->assertContains($this->call('GET', '/api/fantasy-leagues/hoops/draft', null, null, [])->getStatusCode(), [401, 403]);
+        $this->assertSame(200, $this->call('GET', '/api/fantasy-leagues', 2)->getStatusCode(), 'Members still see them');
     }
 
     #[Test]
@@ -40,7 +40,7 @@ class PermissionsAndValidationTest extends TestCase
     {
         $this->database()->table('group_permission')->where('permission', 'fantasy.play')->delete();
 
-        $this->assertSame(403, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 2, ['name' => 'Nope'])->getStatusCode());
+        $this->assertSame(403, $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 2, ['name' => 'Nope'])->getStatusCode());
         $this->assertSame(0, $this->database()->table('fantasy_franchises')->where('user_id', 2)->where('league_id', 1)->count());
     }
 
@@ -54,18 +54,18 @@ class PermissionsAndValidationTest extends TestCase
     #[Test]
     public function a_league_needs_a_real_season_and_a_bounded_description()
     {
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => 'No season'])->getStatusCode());
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => 'Ghost', 'seasonId' => 99])->getStatusCode());
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => 'Wordy', 'seasonId' => 1, 'description' => str_repeat('x', 2001)])->getStatusCode());
-        $this->assertSame(201, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => 'Fine', 'seasonId' => 1, 'description' => str_repeat('x', 2000)])->getStatusCode());
+        $this->assertSame(422, $this->createLeague(1, ['name' => 'No season'])->getStatusCode());
+        $this->assertSame(422, $this->createLeague(1, ['name' => 'Ghost', 'seasonId' => 99])->getStatusCode());
+        $this->assertSame(422, $this->createLeague(1, ['name' => 'Wordy', 'seasonId' => 1, 'description' => str_repeat('x', 2001)])->getStatusCode());
+        $this->assertSame(201, $this->createLeague(1, ['name' => 'Fine', 'seasonId' => 1, 'description' => str_repeat('x', 2000)])->getStatusCode());
     }
 
     #[Test]
     public function two_leagues_with_the_same_long_name_get_different_slugs()
     {
         $name = str_repeat('Long name ', 18); // 180 characters, slugged to about the cap
-        $a = $this->body($this->call('POST', '/api/fantasy/leagues', 1, ['name' => $name, 'seasonId' => 1]))['league']['slug'];
-        $b = $this->body($this->call('POST', '/api/fantasy/leagues', 1, ['name' => $name, 'seasonId' => 1]))['league']['slug'];
+        $a = $this->body($this->createLeague(1, ['name' => $name, 'seasonId' => 1]))['data']['attributes']['slug'];
+        $b = $this->body($this->createLeague(1, ['name' => $name, 'seasonId' => 1]))['data']['attributes']['slug'];
 
         $this->assertNotSame($a, $b);
         $this->assertSame($a.'-2', $b);
@@ -82,12 +82,12 @@ class PermissionsAndValidationTest extends TestCase
         }
         $this->database()->table('fantasy_leagues')->insert($rows);
 
-        $first = $this->body($this->call('GET', '/api/fantasy/leagues'));
-        $this->assertCount(50, $first['leagues']);
-        $this->assertTrue($first['more']);
+        $first = $this->body($this->call('GET', '/api/fantasy-leagues'));
+        $this->assertCount(50, $first['data']);
+        $this->assertArrayHasKey('next', $first['links']);
 
-        $second = $this->body($this->call('GET', '/api/fantasy/leagues', null, null, ['offset' => 50]));
-        $this->assertCount(4, $second['leagues']);
-        $this->assertFalse($second['more']);
+        $second = $this->body($this->call('GET', '/api/fantasy-leagues', null, null, ['page' => ['offset' => 50]]));
+        $this->assertCount(4, $second['data']);
+        $this->assertArrayNotHasKey('next', $second['links'] ?? []);
     }
 }

@@ -1,17 +1,16 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
+use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Draft;
-use Flarum\Http\RequestUtil;
+use Flarum\Api\Context;
 use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
 /** The franchise on the clock takes a team (or the commissioner takes one for it). */
-class DraftPickController implements RequestHandlerInterface
+class DraftPickAction
 {
     use LeagueRequest;
 
@@ -19,17 +18,15 @@ class DraftPickController implements RequestHandlerInterface
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(Context $context): ResponseInterface
     {
-        $actor = RequestUtil::getActor($request);
+        $actor = $context->getActor();
         $this->assertPlayer($actor);
 
-        $league = $this->league($request);
-        if ($league === null) {
-            return $this->problem('league_not_found', 404);
-        }
+        /** @var League $league */
+        $league = $context->model;
 
-        $teamId = (int) (((array) ($request->getParsedBody() ?? []))['teamId'] ?? 0);
+        $teamId = (int) (((array) ($context->request->getParsedBody() ?? []))['teamId'] ?? 0);
         $result = $this->draft->pickInTurn($league, (int) $actor->id, $league->canManage($actor), $teamId);
 
         if (! $result['ok']) {

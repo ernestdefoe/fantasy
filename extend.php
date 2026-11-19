@@ -2,16 +2,10 @@
 
 namespace ErnestDefoe\Fantasy;
 
-use ErnestDefoe\Fantasy\Api\Controller\CreateLeagueController;
-use ErnestDefoe\Fantasy\Api\Controller\DraftController;
-use ErnestDefoe\Fantasy\Api\Controller\DraftPickController;
-use ErnestDefoe\Fantasy\Api\Controller\JoinLeagueController;
-use ErnestDefoe\Fantasy\Api\Controller\LeagueController;
-use ErnestDefoe\Fantasy\Api\Controller\LeaguesController;
-use ErnestDefoe\Fantasy\Api\Controller\LineupController;
-use ErnestDefoe\Fantasy\Api\Controller\SaveLineupController;
-use ErnestDefoe\Fantasy\Api\Controller\StartDraftController;
+use ErnestDefoe\Fantasy\Api\ForumFields;
+use ErnestDefoe\Fantasy\Api\Resource\LeagueResource;
 use ErnestDefoe\Fantasy\Console\ScoreCommand;
+use Flarum\Api\Resource\ForumResource;
 use Flarum\Extend;
 
 return [
@@ -68,23 +62,11 @@ return [
 
     new Extend\Locales(__DIR__.'/resources/locale'),
 
-    /*
-     * Plain request handlers rather than a JSON:API resource: each one answers
-     * one screen (the league table with standings, the draft room, a week's
-     * lineup) or runs one game action (join, start the draft, pick, save a
-     * lineup). None of them is a model's create/read/update/delete, so a
-     * resource would only wrap them.
-     */
-    (new Extend\Routes('api'))
-        ->get('/fantasy/leagues', 'fantasy.api.leagues', LeaguesController::class)
-        ->get('/fantasy/league', 'fantasy.api.league', LeagueController::class)
-        ->post('/fantasy/leagues', 'fantasy.api.leagues.create', CreateLeagueController::class)
-        ->post('/fantasy/leagues/{slug}/join', 'fantasy.api.leagues.join', JoinLeagueController::class)
-        ->post('/fantasy/leagues/{slug}/draft/start', 'fantasy.api.draft.start', StartDraftController::class)
-        ->get('/fantasy/draft', 'fantasy.api.draft', DraftController::class)
-        ->post('/fantasy/leagues/{slug}/draft/pick', 'fantasy.api.draft.pick', DraftPickController::class)
-        ->get('/fantasy/lineup', 'fantasy.api.lineup', LineupController::class)
-        ->post('/fantasy/leagues/{slug}/lineup', 'fantasy.api.lineup.save', SaveLineupController::class),
+    // Listing, showing and starting leagues, and the draft and lineup endpoints on each.
+    new Extend\ApiResource(LeagueResource::class),
+
+    (new Extend\ApiResource(ForumResource::class))
+        ->fields(ForumFields::class),
 
     (new Extend\Console())
         ->command(ScoreCommand::class)

@@ -47,23 +47,21 @@ class LeaguesTest extends TestCase
     #[Test]
     public function anyone_sees_the_leagues_newest_first_with_their_sport()
     {
-        $response = $this->call('GET', '/api/fantasy/leagues');
+        $this->assertSame(200, $this->call('GET', '/api/fantasy-leagues')->getStatusCode());
+        $leagues = $this->leagueList();
 
-        $this->assertSame(200, $response->getStatusCode());
-        $body = $this->body($response);
-
-        $this->assertSame(['hoops', 'saturday-gang'], array_column($body['leagues'], 'slug'));
-        $this->assertSame(['hardwood', 'gridiron'], array_column($body['leagues'], 'sport'));
-        $this->assertSame([2, 1], array_column($body['leagues'], 'franchises'));
-        $this->assertSame(['NBA 2026', 'CFB 2026'], array_column($body['seasons'], 'name'));
-        $this->assertFalse($body['canCreate']);
+        $this->assertSame(['hoops', 'saturday-gang'], array_column($leagues, 'slug'));
+        $this->assertSame(['hardwood', 'gridiron'], array_column($leagues, 'sport'));
+        $this->assertSame([2, 1], array_column($leagues, 'franchiseCount'));
+        $this->assertArrayNotHasKey('page', $leagues[0], 'The standings come with one league, never with the list');
+        $this->assertFalse($this->body($this->call('GET', '/api'))['data']['attributes']['canCreateFantasyLeague']);
     }
 
     #[Test]
     public function only_those_granted_it_may_create_a_league()
     {
-        $this->assertFalse($this->body($this->call('GET', '/api/fantasy/leagues', 2))['canCreate']);
-        $this->assertTrue($this->body($this->call('GET', '/api/fantasy/leagues', 1))['canCreate']);
+        $this->assertFalse($this->body($this->call('GET', '/api', 2))['data']['attributes']['canCreateFantasyLeague']);
+        $this->assertTrue($this->body($this->call('GET', '/api', 1))['data']['attributes']['canCreateFantasyLeague']);
     }
 
     #[Test]
@@ -71,14 +69,14 @@ class LeaguesTest extends TestCase
     {
         $this->database()->table('group_permission')->insert(['group_id' => Group::MEMBER_ID, 'permission' => 'fantasy.createLeague']);
 
-        $this->assertTrue($this->body($this->call('GET', '/api/fantasy/leagues', 2))['canCreate']);
+        $this->assertTrue($this->body($this->call('GET', '/api', 2))['data']['attributes']['canCreateFantasyLeague']);
     }
 
     #[Test]
     public function the_league_list_costs_the_same_queries_however_many_leagues_exist()
     {
-        $this->call('GET', '/api/fantasy/leagues'); // Warms the app's own caches.
-        $few = $this->queriesFor(fn () => $this->call('GET', '/api/fantasy/leagues'));
+        $this->call('GET', '/api/fantasy-leagues'); // Warms the app's own caches.
+        $few = $this->queriesFor(fn () => $this->call('GET', '/api/fantasy-leagues'));
 
         for ($n = 3; $n <= 8; $n++) {
             $this->database()->table('picks_seasons')->insert(['id' => $n, 'name' => "S$n", 'slug' => "s$n", 'year' => 2026, 'league' => 'mlb']);
@@ -86,36 +84,37 @@ class LeaguesTest extends TestCase
             $this->database()->table('fantasy_franchises')->insert(['league_id' => $n, 'user_id' => 2, 'name' => "F$n"]);
         }
 
-        $this->assertSame($few, $this->queriesFor(fn () => $this->call('GET', '/api/fantasy/leagues')));
+        $this->assertSame($few, $this->queriesFor(fn () => $this->call('GET', '/api/fantasy-leagues')));
     }
 
     #[Test]
     public function a_league_shows_its_table_most_points_first()
     {
-        $response = $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'hoops']);
+        $response = $this->call('GET', '/api/fantasy-leagues/hoops');
 
         $this->assertSame(200, $response->getStatusCode(), (string) $response->getBody());
-        $body = $this->body($response);
+        $league = $this->leaguePage('hoops');
+        $page = $league['page'];
 
-        $this->assertSame('hardwood', $body['league']['sport']);
-        $this->assertSame(['Admin Hoopers', 'Normal Ballers'], array_column($body['table'], 'name'));
-        $this->assertEquals([34.5, 20], array_column($body['table'], 'points'));
-        $this->assertSame([1, 1], array_column($body['table'], 'wins'));
-        $this->assertSame(['Celtics', 'Lakers'], array_column($body['table'][1]['roster'], 'name'));
-        $this->assertNull($body['rules']['shutout_bonus'], 'Basketball has no shutouts to reward');
+        $this->assertSame('hardwood', $league['sport']);
+        $this->assertSame(['Admin Hoopers', 'Normal Ballers'], array_column($page['table'], 'name'));
+        $this->assertEquals([34.5, 20], array_column($page['table'], 'points'));
+        $this->assertSame([1, 1], array_column($page['table'], 'wins'));
+        $this->assertSame(['Celtics', 'Lakers'], array_column($page['table'][1]['roster'], 'name'));
+        $this->assertNull($page['rules']['shutout_bonus'], 'Basketball has no shutouts to reward');
     }
 
     #[Test]
     public function a_league_that_does_not_exist_is_not_found()
     {
-        $this->assertSame(404, $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'nope'])->getStatusCode());
+        $this->assertSame(404, $this->call('GET', '/api/fantasy-leagues/nope')->getStatusCode());
     }
 
     #[Test]
     public function a_league_page_costs_the_same_queries_however_many_franchises_it_has()
     {
-        $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'hoops']);
-        $few = $this->queriesFor(fn () => $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'hoops']));
+        $this->call('GET', '/api/fantasy-leagues/hoops');
+        $few = $this->queriesFor(fn () => $this->call('GET', '/api/fantasy-leagues/hoops'));
 
         for ($n = 10; $n <= 15; $n++) {
             $this->database()->table('users')->insert(['id' => $n, 'username' => "u$n", 'email' => "u$n@machine.local", 'password' => '', 'is_email_confirmed' => 1, 'joined_at' => Carbon::now()]);
@@ -124,27 +123,27 @@ class LeaguesTest extends TestCase
             $this->database()->table('picks_teams')->insert(['id' => 4 + $n, 'name' => "T$n", 'slug' => "t$n"]);
         }
 
-        $this->assertSame($few, $this->queriesFor(fn () => $this->call('GET', '/api/fantasy/league', null, null, ['slug' => 'hoops'])));
+        $this->assertSame($few, $this->queriesFor(fn () => $this->call('GET', '/api/fantasy-leagues/hoops')));
     }
 
     #[Test]
     public function a_guest_cannot_create_a_league()
     {
-        $this->assertSame(401, $this->call('POST', '/api/fantasy/leagues', null, ['name' => 'Guests'])->getStatusCode());
+        $this->assertSame(401, $this->createLeague(null, ['name' => 'Guests', 'seasonId' => 1])->getStatusCode());
         $this->assertSame(2, $this->database()->table('fantasy_leagues')->count());
     }
 
     #[Test]
     public function a_guest_cannot_join_a_league()
     {
-        $this->assertSame(401, $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', null, [])->getStatusCode());
+        $this->assertSame(401, $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', null, [])->getStatusCode());
         $this->assertSame(3, $this->database()->table('fantasy_franchises')->count());
     }
 
     #[Test]
     public function a_member_without_the_permission_cannot_create_a_league()
     {
-        $this->assertSame(403, $this->call('POST', '/api/fantasy/leagues', 2, ['name' => 'Mine', 'seasonId' => 2])->getStatusCode());
+        $this->assertSame(403, $this->createLeague(2, ['name' => 'Mine', 'seasonId' => 2])->getStatusCode());
         $this->assertSame(2, $this->database()->table('fantasy_leagues')->count());
     }
 
@@ -154,12 +153,17 @@ class LeaguesTest extends TestCase
         $this->setting('ernestdefoe-fantasy.default_max_franchises', '6');
         $this->database()->table('group_permission')->insert(['group_id' => Group::MEMBER_ID, 'permission' => 'fantasy.createLeague']);
 
-        $response = $this->call('POST', '/api/fantasy/leagues', 2, ['name' => 'Hoops', 'seasonId' => 2, 'maxFranchises' => 30]);
+        $response = $this->createLeague(2, ['name' => 'Hoops', 'seasonId' => 2]);
 
         $this->assertSame(201, $response->getStatusCode(), (string) $response->getBody());
-        $league = $this->body($response)['league'];
+        $league = $this->body($response)['data']['attributes'];
         $this->assertSame('hoops-2', $league['slug']);
-        $this->assertSame(6, $league['maxFranchises'], 'The forum\'s number, not the form\'s');
+        $this->assertSame(6, $league['maxFranchises'], 'The forum\'s number');
+
+        // The sizes are the forum's: a client can't send its own.
+        $refused = $this->createLeague(2, ['name' => 'Big', 'seasonId' => 2, 'maxFranchises' => 30])->getStatusCode();
+        $this->assertGreaterThanOrEqual(400, $refused);
+        $this->assertLessThan(500, $refused);
         $this->assertSame('setup', $league['status']);
 
         $row = $this->database()->table('fantasy_leagues')->where('slug', 'hoops-2')->first();
@@ -171,21 +175,21 @@ class LeaguesTest extends TestCase
     #[Test]
     public function a_league_needs_a_sensible_name()
     {
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => '  '])->getStatusCode());
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues', 1, ['name' => str_repeat('x', 190)])->getStatusCode());
+        $this->assertSame(422, $this->createLeague(1, ['name' => '  ', 'seasonId' => 1])->getStatusCode());
+        $this->assertSame(422, $this->createLeague(1, ['name' => str_repeat('x', 190), 'seasonId' => 1])->getStatusCode());
     }
 
     #[Test]
     public function a_member_joins_once_until_the_league_is_full()
     {
-        $first = $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 2, ['name' => 'Normal FC']);
+        $first = $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 2, ['name' => 'Normal FC']);
         $this->assertSame(200, $first->getStatusCode(), (string) $first->getBody());
         $this->assertSame('Normal FC', $this->body($first)['franchise']['name']);
 
-        $again = $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 2, ['name' => 'Second']);
+        $again = $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 2, ['name' => 'Second']);
         $this->assertSame($this->body($first)['franchise']['id'], $this->body($again)['franchise']['id'], 'Joining twice is one franchise');
 
-        $full = $this->call('POST', '/api/fantasy/leagues/saturday-gang/join', 3, []);
+        $full = $this->call('POST', '/api/fantasy-leagues/saturday-gang/join', 3, []);
         $this->assertSame(422, $full->getStatusCode(), 'Two of two places taken');
         $this->assertSame(2, $this->database()->table('fantasy_franchises')->where('league_id', 1)->count());
     }
@@ -193,7 +197,7 @@ class LeaguesTest extends TestCase
     #[Test]
     public function nobody_new_joins_a_league_that_has_started()
     {
-        $this->assertSame(422, $this->call('POST', '/api/fantasy/leagues/hoops/join', 3, [])->getStatusCode());
-        $this->assertSame(404, $this->call('POST', '/api/fantasy/leagues/nope/join', 3, [])->getStatusCode());
+        $this->assertSame(422, $this->call('POST', '/api/fantasy-leagues/hoops/join', 3, [])->getStatusCode());
+        $this->assertSame(404, $this->call('POST', '/api/fantasy-leagues/nope/join', 3, [])->getStatusCode());
     }
 }

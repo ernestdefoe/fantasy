@@ -71,6 +71,26 @@ trait SeedsLeagues
         return $this->send($method === 'GET' ? $request : $this->requestWithCsrfToken($request));
     }
 
+    /** One page of the league list (JSON:API), each league's attributes. */
+    protected function leagueList(?int $actor = null, array $query = []): array
+    {
+        $body = $this->body($this->call('GET', '/api/fantasy-leagues', $actor, null, $query));
+
+        return array_map(fn ($l) => $l['attributes'], $body['data'] ?? []);
+    }
+
+    /** One league's attributes (with `page`: rules, table, viewer), shown by slug. */
+    protected function leaguePage(string $slug, ?int $actor = null): array
+    {
+        return $this->body($this->call('GET', '/api/fantasy-leagues/'.$slug, $actor))['data']['attributes'] ?? [];
+    }
+
+    /** Start a league through the JSON:API Create endpoint. */
+    protected function createLeague(?int $actor, array $attributes)
+    {
+        return $this->call('POST', '/api/fantasy-leagues', $actor, ['data' => ['type' => 'fantasy-leagues', 'attributes' => $attributes]]);
+    }
+
     protected function body($response): array
     {
         return json_decode((string) $response->getBody(), true) ?? [];

@@ -1,69 +1,43 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Service;
 
 use ErnestDefoe\Fantasy\Franchise;
 use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Sports\Scoring as SportScoring;
-use Flarum\Http\RequestUtil;
+use Flarum\User\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Laminas\Diactoros\Response\JsonResponse;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
-/** One league: its rules, its franchises and their rosters. */
-class LeagueController implements RequestHandlerInterface
+/** What a league's page shows: its rules, its standings and what this visitor can do. */
+class Standings
 {
-    public function __construct(protected ConnectionInterface $db)
+    public function __construct(private ConnectionInterface $db)
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    /**
+     * @return array{rules: array<string, float|null>, table: list<array<string, mixed>>, viewer: array<string, mixed>}
+     */
+    public function forLeague(League $league, User $actor): array
     {
-        $actor = RequestUtil::getActor($request);
-        $actor->assertCan('viewForum');
+        $franchises = Franchise::query()->where('league_id', $league->id)->with('user')->get();
+        $mine = $actor->exists ? $franchises->first(fn ($f) => (int) $f->user_id === (int) $actor->id) : null;
 
-        $slug = (string) ($request->getQueryParams()['slug'] ?? '');
-        $league = League::query()->where('slug', $slug)->first();
-
-        if ($league === null) {
-            throw new ModelNotFoundException();
-        }
-
-        $competition = $league->competition();
-
-        $franchises = Franchise::query()
-            ->where('league_id', $league->id)
-            ->with('user')
-            ->get();
-
-        return new JsonResponse([
-            'league' => [
-                'name' => (string) $league->name,
-                'slug' => (string) $league->slug,
-                'description' => (string) $league->description,
-                'status' => (string) $league->status,
-                'sport' => SportScoring::sportOf($competition),
-                'rosterSize' => (int) $league->roster_size,
-                'starters' => (int) $league->starters,
-            ],
-            'rules' => $this->rules($league, $competition),
+        return [
+            'rules' => $this->rules($league, $league->competition()),
             'table' => $this->table($league, $franchises),
             // What the page offers this visitor: join, run the draft, set a lineup.
             'viewer' => [
-                'franchise' => ($mine = $franchises->first(fn ($f) => $actor->exists && (int) $f->user_id === (int) $actor->id)) ? (int) $mine->id : null,
+                'franchise' => $mine ? (int) $mine->id : null,
                 'manager' => $league->canManage($actor),
-                'canJoin' => $actor->exists && ! $mine && $league->status === 'setup' && $franchises->count() < (int) $league->max_franchises,
+                'canJoin' => $actor->exists && ! $mine && $league->status === 'setup'
+                    && $franchises->count() < (int) $league->max_franchises && $actor->can('fantasy.play'),
             ],
-            'franchises' => $franchises->count(),
-            'maxFranchises' => (int) $league->max_franchises,
-        ]);
+        ];
     }
 
-    /** The scoring rules as the league page lists them. */
+    /** @return array<string, float|null> */
     private function rules(League $league, string $competition): array
     {
         return [
@@ -83,9 +57,10 @@ class LeagueController implements RequestHandlerInterface
     }
 
     /**
-     * The standings: each franchise with its points, wins and roster, most points first.
+     * Each franchise with its points, wins and roster, most points first.
      *
      * @param Collection<int, Franchise> $franchises
+     * @return list<array<string, mixed>>
      */
     private function table(League $league, Collection $franchises): array
     {

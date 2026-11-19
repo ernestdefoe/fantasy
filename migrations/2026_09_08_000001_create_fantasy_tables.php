@@ -18,6 +18,10 @@ use Illuminate\Database\Schema\Builder;
  */
 return [
     'up' => function (Builder $schema) {
+        // Index names are given (Laravel's own would pass MySQL's 64 characters
+        // once prefixed) and so carry the table prefix themselves.
+        $prefix = $schema->getConnection()->getTablePrefix();
+
         $schema->create('fantasy_leagues', function (Blueprint $table) {
             $table->increments('id');
             $table->string('name', 190);
@@ -48,7 +52,7 @@ return [
             $table->index('season_id');
         });
 
-        $schema->create('fantasy_franchises', function (Blueprint $table) {
+        $schema->create('fantasy_franchises', function (Blueprint $table) use ($prefix) {
             $table->increments('id');
             $table->unsignedInteger('league_id');
             $table->unsignedInteger('user_id');
@@ -57,11 +61,11 @@ return [
 
             // One franchise per member per league, enforced by the index rather
             // than by the application remembering to check.
-            $table->unique(['league_id', 'user_id'], 'fantasy_one_franchise');
+            $table->unique(['league_id', 'user_id'], $prefix.'fantasy_one_franchise');
             $table->index('league_id');
         });
 
-        $schema->create('fantasy_rosters', function (Blueprint $table) {
+        $schema->create('fantasy_rosters', function (Blueprint $table) use ($prefix) {
             $table->increments('id');
             $table->unsignedInteger('league_id');
             $table->unsignedInteger('franchise_id');
@@ -74,11 +78,11 @@ return [
              * rule the application remembers. Two people clicking Add on the
              * same free agent in the same second is not hypothetical.
              */
-            $table->unique(['league_id', 'team_id'], 'fantasy_one_owner');
+            $table->unique(['league_id', 'team_id'], $prefix.'fantasy_one_owner');
             $table->index(['league_id', 'franchise_id']);
         });
 
-        $schema->create('fantasy_lineups', function (Blueprint $table) {
+        $schema->create('fantasy_lineups', function (Blueprint $table) use ($prefix) {
             $table->increments('id');
             $table->unsignedInteger('league_id');
             $table->unsignedInteger('franchise_id');
@@ -87,11 +91,11 @@ return [
             $table->boolean('started')->default(false);
             $table->timestamps();
 
-            $table->unique(['league_id', 'franchise_id', 'week_id', 'team_id'], 'fantasy_lineup_one_each');
+            $table->unique(['league_id', 'franchise_id', 'week_id', 'team_id'], $prefix.'fantasy_lineup_one_each');
             $table->index(['league_id', 'week_id']);
         });
 
-        $schema->create('fantasy_scores', function (Blueprint $table) {
+        $schema->create('fantasy_scores', function (Blueprint $table) use ($prefix) {
             $table->increments('id');
             $table->unsignedInteger('league_id');
             $table->unsignedInteger('franchise_id');
@@ -113,7 +117,7 @@ return [
 
             $table->timestamps();
 
-            $table->unique(['league_id', 'franchise_id', 'week_id', 'team_id'], 'fantasy_score_one_each');
+            $table->unique(['league_id', 'franchise_id', 'week_id', 'team_id'], $prefix.'fantasy_score_one_each');
             $table->index(['league_id', 'week_id']);
         });
     },

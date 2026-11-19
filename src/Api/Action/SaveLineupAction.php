@@ -1,17 +1,16 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
+use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Lineups;
-use Flarum\Http\RequestUtil;
+use Flarum\Api\Context;
 use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
 /** Save who starts this week. Only for your own franchise. */
-class SaveLineupController implements RequestHandlerInterface
+class SaveLineupAction
 {
     use LeagueRequest;
 
@@ -19,21 +18,19 @@ class SaveLineupController implements RequestHandlerInterface
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(Context $context): ResponseInterface
     {
-        $actor = RequestUtil::getActor($request);
+        $actor = $context->getActor();
         $this->assertPlayer($actor);
 
-        $league = $this->league($request);
-        if ($league === null) {
-            return $this->problem('league_not_found', 404);
-        }
+        /** @var League $league */
+        $league = $context->model;
         $franchise = $this->franchiseOf($league, (int) $actor->id);
         if ($franchise === null) {
             return $this->problem('not_in_league', 403);
         }
 
-        $body = (array) ($request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $teams = is_array($body['teamIds'] ?? null) ? $body['teamIds'] : [];
         $result = $this->lineups->save($league, $franchise, (int) ($body['weekId'] ?? 0), $teams);
 

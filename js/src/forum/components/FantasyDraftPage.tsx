@@ -43,8 +43,8 @@ export default class FantasyDraftPage extends Page {
     return app
       .request<DraftData>({
         method: 'GET',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/draft`,
-        params: { slug: m.route.param('slug'), q: this.search },
+        url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(m.route.param('slug'))}/draft`,
+        params: { filter: { q: this.search } },
       })
       .then((data: DraftData) => {
         const first = this.data === null;
@@ -235,7 +235,7 @@ export default class FantasyDraftPage extends Page {
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data!.league.slug)}/draft/pick`,
+        url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(this.data!.league.slug)}/draft/pick`,
         body: { teamId: team.id },
       })
       .then(() => {

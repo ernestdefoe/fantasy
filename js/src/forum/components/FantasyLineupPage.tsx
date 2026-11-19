@@ -41,8 +41,8 @@ export default class FantasyLineupPage extends Page {
     return app
       .request<LineupData>({
         method: 'GET',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/lineup`,
-        params: { slug: m.route.param('slug'), week: week || undefined },
+        url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(m.route.param('slug'))}/lineup`,
+        params: week ? { filter: { week } } : {},
       })
       .then((data: LineupData) => {
         this.data = data;
@@ -189,7 +189,7 @@ export default class FantasyLineupPage extends Page {
     app
       .request({
         method: 'POST',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.data!.league.slug)}/lineup`,
+        url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(this.data!.league.slug)}/lineup`,
         body: { weekId: this.data!.week, teamIds: [...this.chosen] },
       })
       .then(() => {

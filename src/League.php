@@ -31,6 +31,9 @@ class League extends AbstractModel
 {
     public $timestamps = true;
 
+    /** The season's competition when a list already loaded it for every league at once. */
+    public ?string $knownCompetition = null;
+
     protected $table = 'fantasy_leagues';
 
     /**
@@ -83,7 +86,7 @@ class League extends AbstractModel
     /** Which competition this league's season is (Picks' `picks_seasons.league`), or '' when it has none. */
     public function competition(): string
     {
-        return (string) $this->getConnection()->table('picks_seasons')->where('id', $this->season_id)->value('league');
+        return $this->knownCompetition ??= (string) $this->getConnection()->table('picks_seasons')->where('id', $this->season_id)->value('league');
     }
 
     /**

@@ -1,17 +1,16 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
+use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Draft;
-use Flarum\Http\RequestUtil;
+use Flarum\Api\Context;
 use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
 /** The commissioner closes sign-ups and opens the draft, in a shuffled order. */
-class StartDraftController implements RequestHandlerInterface
+class StartDraftAction
 {
     use LeagueRequest;
 
@@ -19,15 +18,13 @@ class StartDraftController implements RequestHandlerInterface
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(Context $context): ResponseInterface
     {
-        $actor = RequestUtil::getActor($request);
+        $actor = $context->getActor();
         $this->assertPlayer($actor);
 
-        $league = $this->league($request);
-        if ($league === null) {
-            return $this->problem('league_not_found', 404);
-        }
+        /** @var League $league */
+        $league = $context->model;
         if (! $league->canManage($actor)) {
             return $this->problem('not_commissioner', 403);
         }

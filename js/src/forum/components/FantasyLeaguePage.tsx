@@ -6,6 +6,7 @@ import Button from 'flarum/common/components/Button';
 import LinkButton from 'flarum/common/components/LinkButton';
 import crestUrl from '../crest';
 import JoinLeagueModal from './JoinLeagueModal';
+import type League from '../models/League';
 import extractText from 'flarum/common/utils/extractText';
 
 /** One league: the table, everybody's roster, and the rules. */
@@ -25,19 +26,16 @@ export default class FantasyLeaguePage extends Page {
   }
 
   load() {
-    app
-      .request({
-        method: 'GET',
-        url: `${app.forum.attribute('apiUrl')}/fantasy/league`,
-        params: { slug: m.route.param('slug') },
-      })
-      .then((data: any) => {
-        this.league = data.league;
-        this.rules = data.rules || {};
-        this.table = data.table || [];
-        this.viewer = data.viewer || {};
-        this.franchises = data.franchises || 0;
-        this.maxFranchises = data.maxFranchises || 0;
+    app.store
+      .find<League>('fantasy-leagues', m.route.param('slug'))
+      .then((league) => {
+        const page = league.page();
+        this.league = { name: league.name(), slug: league.slug(), status: league.status(), description: league.description() };
+        this.rules = page?.rules || {};
+        this.table = page?.table || [];
+        this.viewer = page?.viewer || {};
+        this.franchises = league.franchiseCount() || 0;
+        this.maxFranchises = league.maxFranchises() || 0;
         this.loading = false;
         app.history.push('fantasy', this.league?.name || '');
         m.redraw();
@@ -246,7 +244,7 @@ export default class FantasyLeaguePage extends Page {
     if (!confirm(extractText(app.translator.trans('ernestdefoe-fantasy.forum.start_draft_confirm')))) return;
     this.starting = true;
     app
-      .request({ method: 'POST', url: `${app.forum.attribute('apiUrl')}/fantasy/leagues/${encodeURIComponent(this.league.slug)}/draft/start` })
+      .request({ method: 'POST', url: `${app.forum.attribute('apiUrl')}/fantasy-leagues/${encodeURIComponent(this.league.slug)}/draft/start` })
       .then(() => m.route.set(app.route('fantasy.draft', { slug: this.league.slug })))
       .catch((err) => {
         this.starting = false;

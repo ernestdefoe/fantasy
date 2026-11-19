@@ -170,8 +170,8 @@ class Lineups
 
         /*
          * 🚨 Rosters and earlier lineups for every franchise that needs one are
-         * read in one query each, not one per franchise: this runs for every
-         * week of every league on each hourly scoring pass.
+         * read in one query each, not one per franchise: this runs for each
+         * recent week of every active league on the hourly scoring pass.
          */
         $rosters = $this->db->table('fantasy_rosters')
             ->where('league_id', $league->id)->whereIn('franchise_id', $missing)

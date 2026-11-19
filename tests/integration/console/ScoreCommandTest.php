@@ -83,6 +83,9 @@ class ScoreCommandTest extends ConsoleTestCase
         // Week 3's games were three weeks ago: already scored, not re-read every hour.
         $this->database()->table('picks_events')->where('week_id', 3)->update(['match_date' => Carbon::now()->subDays(21)]);
         $this->assertStringContainsString('0 team-weeks scored', $this->runCommand(['command' => 'fantasy:score']));
+        // …unless asked to catch up on everything.
+        $this->assertStringContainsString('2 team-weeks scored', $this->runCommand(['command' => 'fantasy:score', '--all' => true]));
+        $this->database()->table('fantasy_scores')->delete();
 
         // A league still drafting has no lineups to score.
         $this->database()->table('picks_events')->where('week_id', 3)->update(['match_date' => Carbon::now()->subHour()]);

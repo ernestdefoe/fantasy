@@ -293,3 +293,13 @@
   margin-top: 20px;
   text-align: center;
 }
+
+// On phones core lifts form text to 16px (no iOS zoom) but keeps a 36px
+// height, which clipped the select's text. Let these grow to fit.
+@media @phone {
+  .FantasyLineup-week,
+  .FantasyCreateModal select.FormControl {
+    height: auto;
+    min-height: 36px;
+  }
+}

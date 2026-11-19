@@ -1,14 +1,13 @@
 <?php
 
-namespace ErnestDefoe\Fantasy\Api\Controller;
+namespace ErnestDefoe\Fantasy\Api\Action;
 
+use ErnestDefoe\Fantasy\League;
 use ErnestDefoe\Fantasy\Service\Leagues;
-use Flarum\Http\RequestUtil;
+use Flarum\Api\Context;
 use Flarum\Locale\TranslatorInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Take a franchise in a league.
@@ -20,7 +19,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * this route, and a league that gains a thirteenth franchise after the draft
  * has no way to give it anybody to play.
  */
-class JoinLeagueController implements RequestHandlerInterface
+class JoinLeagueAction
 {
     use LeagueRequest;
 
@@ -28,17 +27,15 @@ class JoinLeagueController implements RequestHandlerInterface
     {
     }
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(Context $context): ResponseInterface
     {
-        $actor = RequestUtil::getActor($request);
+        $actor = $context->getActor();
         $this->assertPlayer($actor);
 
-        $league = $this->league($request);
-        if ($league === null) {
-            return $this->problem('league_not_found', 404);
-        }
+        /** @var League $league */
+        $league = $context->model;
 
-        $body = (array) ($request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $result = $this->leagues->join($league, (int) $actor->id, (string) ($body['name'] ?? ''));
 
         if (! $result['ok']) {

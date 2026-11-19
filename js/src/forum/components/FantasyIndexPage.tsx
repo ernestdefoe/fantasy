@@ -5,13 +5,12 @@ import Link from 'flarum/common/components/Link';
 import Button from 'flarum/common/components/Button';
 import extractText from 'flarum/common/utils/extractText';
 import CreateLeagueModal from './CreateLeagueModal';
+import type League from '../models/League';
 
 /** Every fantasy league on the forum. */
 export default class FantasyIndexPage extends Page {
   loading = true;
-  leagues: any[] = [];
-  seasons: any[] = [];
-  canCreate = false;
+  leagues: League[] = [];
   more = false;
   loadingMore = false;
 
@@ -23,13 +22,11 @@ export default class FantasyIndexPage extends Page {
 
   /** A page of leagues, newest first; later pages are added below the first. */
   load(offset = 0) {
-    return app
-      .request({ method: 'GET', url: `${app.forum.attribute('apiUrl')}/fantasy/leagues`, params: { offset } })
-      .then((data: any) => {
-        this.leagues = [...(offset ? this.leagues : []), ...(data.leagues || [])];
-        this.seasons = data.seasons || [];
-        this.canCreate = !!data.canCreate;
-        this.more = !!data.more;
+    return app.store
+      .find<League[]>('fantasy-leagues', { page: { offset } })
+      .then((leagues) => {
+        this.leagues = [...(offset ? this.leagues : []), ...leagues];
+        this.more = !!leagues.payload?.links?.next;
       })
       .catch(() => {
         // app.request has already shown the error.
@@ -54,20 +51,17 @@ export default class FantasyIndexPage extends Page {
           <p className="FantasyPage-intro">{app.translator.trans('ernestdefoe-fantasy.forum.intro')}</p>
 
           {/*
-           * 🚨 Drawn only once the request has answered, and only if it said
-           * yes. Guessing from `app.session.user` would show the button to
-           * every member and then refuse half of them at the API — the server
-           * is the only thing that knows whether the permission is granted,
-           * and a control that appears and then says no is worse than one
-           * that was never there.
+           * 🚨 Drawn only when the server says the permission is granted.
+           * Guessing from `app.session.user` would show the button to every
+           * member and then refuse half of them at the API, and a control that
+           * appears and then says no is worse than one that was never there.
            */}
-          {!this.loading && this.canCreate ? (
+          {app.forum.attribute('canCreateFantasyLeague') ? (
             <Button
               className="Button Button--primary FantasyPage-start"
               icon="fas fa-plus"
               onclick={() =>
                 app.modal.show(CreateLeagueModal, {
-                  seasons: this.seasons,
                   defaults: {
                     maxFranchises: app.forum.attribute('fantasyMaxFranchises'),
                     rosterSize: app.forum.attribute('fantasyRosterSize'),
@@ -95,13 +89,13 @@ export default class FantasyIndexPage extends Page {
     ) : (
       [
         <div className="FantasyGrid">
-          {this.leagues.map((l: any) => (
-            <Link className="FantasyCard" href={app.route('fantasy.league', { slug: l.slug })}>
-              <span className="FantasyCard-name">{l.name}</span>
-              <span className={'FantasyCard-status FantasyCard-status--' + l.status}>
-                {app.translator.trans('ernestdefoe-fantasy.forum.status.' + l.status)}
+          {this.leagues.map((l) => (
+            <Link className="FantasyCard" href={app.route('fantasy.league', { slug: l.slug() })}>
+              <span className="FantasyCard-name">{l.name()}</span>
+              <span className={'FantasyCard-status FantasyCard-status--' + l.status()}>
+                {app.translator.trans('ernestdefoe-fantasy.forum.status.' + l.status())}
               </span>
-              {l.description ? <span className="FantasyCard-desc">{l.description}</span> : null}
+              {l.description() ? <span className="FantasyCard-desc">{l.description()}</span> : null}
               <span className="FantasyCard-meta">
                 {/*
                 🚨 `trans` with a count, and the plural inside the STRING
@@ -110,7 +104,7 @@ export default class FantasyIndexPage extends Page {
                 invisible: the redraw never lands and the page sits on a
                 spinner.
               */}
-                {app.translator.trans('ernestdefoe-fantasy.forum.franchise_count', { count: l.franchises })}
+                {app.translator.trans('ernestdefoe-fantasy.forum.franchise_count', { count: l.franchiseCount() })}
               </span>
             </Link>
           ))}
